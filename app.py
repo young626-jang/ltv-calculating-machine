@@ -216,52 +216,67 @@ st.markdown("### 컨설팅 및 브릿지 수수료 계산")
 
 # 입력 필드
 total_loan = st.text_input ("총 대출금액")
-컨설팅_rate = st.number_input ("컨설팅 수수료율(%), 값=1.5, 단계=0.1)
+컨설팅_rate = st.number_input("컨설팅 수수료율(%)", value=1.5, step=0.1)
 
-브리지 양 = st.text_input ("브릿지 금액")
-bridge_rate = st.number_input ("브릿지 수수료율(%), 값=0.7, 단계=0.1)
+bridge_amount = st.text_input ("브릿지 금액")
+bridge_rate = st.number_input("브릿지 수수료율(%)", value=0.7, step=0.1)
 
 # 수수료 계산
-컨설팅_fee = 계산_fees(총_loan, 컨설팅_요금)
-bridge_fee = 계산_fees(bridge_금액, bridge_rate)
-총_fee = 컨설팅_fee + 브리지_fee
+컨설팅_fee = calculate_fees(total_loan, 컨설팅_rate)
+bridge_fee = calculate_fees(bridge_amount, bridge_rate)
+총_fee = 컨설팅_fee + bridge_fee
 
 # 결과 출력
-st.write(f"컨설팅 비용): {int(consult_fee):,}만원")
-st.write(f"브릿지 비용): {int(bridge_fee):,}만원")
+st.write(f"컨설팅 비용: {int(컨설팅_fee):,}만원")
+st.write(f"브릿지 비용: {int(bridge_fee):,}만원")
 st.write(f"🔗 총 비용: {int(총_fee):,}만원")
 
 # CSS를 활용한 UI 스타일 개선
 st.markdown(
     """
- <스타일>
- /* 전체 배경색 */
- .메인 {
- 배경색: #FFDFB9;
- }
+    <style>
+    /* 전체 앱 배경색 */
+    .stApp {
+        background-color: #C7D3D4
+    }
 
- /* 입력 필드 스타일 */
- .stTextInput, .stNumber입력, .stSelectbox {
- 배경색: #FFFFF;
- 경계: 1px 고체 #CCCCCCC;
- 국경 radius: 5 px;
- 패딩: 5 px;
- }
+    <style>
+    /* 입력 필드 스타일 */
+    input, select, textarea {
+        background-color: #FFFFFF;
+        border: 1px solid #CCCCCC;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 14px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+        border-color: #007BFF;
+        box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+    }
 
- /* 버튼 스타일 */
- .stButton>버튼 {
- 배경색: #007BFF;
- 색상: 흰색;
- 경계: 없음;
- 국경 radius: 5 px;
- 패딩: 10 px 20 px;
- 글꼴 크기: 16 px;
- 커서: 포인터;
- }
- .stButton>버튼:호버 {
- 배경색: #0056b3;
- }
- </스타일>
- """
- 안전하지 않은_allow_html=True
+    /* 버튼 스타일 */
+    .stButton > button {
+        background: linear-gradient(90deg, #007BFF, #0056b3);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(90deg, #0056b3, #003f7f);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .stButton > button:active {
+        transform: scale(0.98);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
