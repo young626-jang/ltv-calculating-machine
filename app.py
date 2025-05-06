@@ -1,10 +1,11 @@
 import streamlit as st
+
+st.set_page_config(page_title="LTV 계산기", layout="wide")
+
 import fitz  # PyMuPDF
 import re
 import urllib.parse
 
-# 페이지 설정
-st.set_page_config(page_title="LTV 계산기", layout="wide")
 st.title("🏠 LTV 계산기 (주소+면적추출)")
 
 # 방공제 지역 맵
@@ -96,7 +97,7 @@ st.write(f"적용된 방공제 금액: {deduction:,}만원")
 # LTV 입력 2개
 col1, col2 = st.columns(2)
 raw_ltv1 = col1.text_input("LTV 비율 ①", "80")
-raw_ltv2 = col2.text_input("LTV 비율 ②", "")
+raw_ltv2 = col2.text_input("LTV 비율 ②", "85")
 
 ltv_selected = []
 for val in [raw_ltv1, raw_ltv2]:
@@ -110,7 +111,7 @@ ltv_selected = list(dict.fromkeys(ltv_selected))
 
 # 대출 항목
 st.markdown("### 대출 항목 입력")
-rows = st.number_input("항목 개수", min_value=1, max_value=10, value=3)
+rows = st.number_input("항목 개수", min_value=1, max_value=10, value=1)
 items = []
 for i in range(int(rows)):
     cols = st.columns(5)
@@ -139,73 +140,128 @@ sum_sm = sum(int(item["원금"] or 0) for item in items if item["진행구분"] 
 
 text_to_copy = ""
 
-# 📍 일반가 / 하안가 여부
+text_to_copy = f"📍 주소: {address_input}\n" + text_to_copy
+# 📍 일반가 / 하안가 여부 + KB시세
 type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
-text_to_copy += f"{type_of_price}\n"
+text_to_copy += f"{type_of_price} | KB시세: {raw_price}원 | 방공제 금액: {deduction:,}만원\n"
 
-# 📍 진행구분별 원금 합계
-text_to_copy += "\n[진행구분별 원금 합계]\n"
-text_to_copy += "구분     | 합계 (만원)\n"
-text_to_copy += "--------|--------------\n"
-text_to_copy += f"대환     | {sum_dh:,.0f}\n"
-text_to_copy += f"선말소   | {sum_sm:,.0f}\n"
-
-# 📍 대출 항목 표
-text_to_copy += "\n[대출 항목]\n"
-text_to_copy += "설정자 / 채권최고액 (만원) / 설정비율 (%) / 원금 / 진행구분\n"
+# 대출 항목 조건 필터
+valid_items = []
 for item in items:
-    max_amt = re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0")
-    principal_amt = re.sub(r"[^\d]", "", item.get("원금", "") or "0")
-    text_to_copy += f"{item['설정자']} / {int(max_amt):,} / {item['설정비율']} / {int(principal_amt):,} / {item['진행구분']}\n"
+    # 숫자만 추출
+    is_valid = any([
+        item.get("설정자", "").strip(),
+        re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0") != "0",
+        re.sub(r"[^\d]", "", item.get("원금", "") or "0") != "0"
+    ])
+    if is_valid:
+        valid_items.append(item)
 
-# 📍 LTV 계산 결과
+# 대출 항목 출력
+if valid_items:
+    text_to_copy += "\n[대출 항목]\n"
+    for item in valid_items:
+        max_amt = int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
+        principal_amt = int(re.sub(r"[^\d]", "", item.get("원금", "") or "0"))
+        text_to_copy += f"{item['설정자']} | 채권최고액: {max_amt:,} | 비율: {item.get('설정비율', '0')}% | 원금: {principal_amt:,} | {item['진행구분']}\n"
+
+# LTV 계산 함수 정의
+def calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=True):
+    if is_senior:
+        # 선순위 계산
+        limit = int(total_value * (ltv / 100) - deduction) // 10 * 10
+        available = int(limit - senior_principal_sum) // 10 * 10
+    else:
+        # 후순위 계산
+        limit = int(total_value * (ltv / 100) - maintain_maxamt_sum - deduction) // 10 * 10
+        available = int(limit - senior_principal_sum) // 10 * 10
+    return limit, available
+
+# "유지"와 관련된 조건 미리 계산
+has_maintain = any(item["진행구분"] == "유지" for item in items)
+has_senior = any(item["진행구분"] in ["대환", "선말소"] for item in items)
+
 for ltv in ltv_selected:
-    text_to_copy += "-" * 56 + "\n"
-    limit_senior = total_value * (ltv / 100) - deduction
-    avail_senior = limit_senior - senior_principal_sum
-    text_to_copy += f"📌 선순위 LTV {ltv}% 대출가능금액: {limit_senior:,.0f}만원\n"
-    text_to_copy += f"💡 선순위 LTV {ltv}%가용금액: {avail_senior:,.0f}만원\n"
+    # ✅ 선순위는 "유지"가 없을 때만
+    if has_senior and not has_maintain:
+        limit_senior, avail_senior = calculate_ltv(total_value, deduction, senior_principal_sum, 0, ltv, is_senior=True)
+        text_to_copy += f"📌 선순위 LTV {ltv}% 대출가능금액: {limit_senior:,}만원 (가용금액: {avail_senior:,}만원)\n"
 
-    if any(item["진행구분"] == "유지" for item in items):
+    # ✅ 후순위는 "유지"가 있을 때만
+    if has_maintain:
         maintain_maxamt_sum = sum(
             int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
             for item in items if item["진행구분"] == "유지"
         )
-        limit_sub = total_value * (ltv / 100) - maintain_maxamt_sum - deduction
-        avail_sub = limit_sub - senior_principal_sum
-        text_to_copy += f"📌 후순위 LTV {ltv}% 대출가능금액: {limit_sub:,.0f}만원\n"
-        text_to_copy += f"💡 후순위 LTV {ltv}%가용금액: {avail_sub:,.0f}만원\n"
+        limit_sub, avail_sub = calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=False)
+        text_to_copy += f"📌 후순위 LTV {ltv}% 대출가능금액: {limit_sub:,}만원 (가용금액: {avail_sub:,}만원)\n"
 
-        
-# 수수료
+# 📍 진행구분별 원금 합계
+text_to_copy += "\n[진행구분별 원금 합계]\n"
+if sum_dh > 0:
+    text_to_copy += f"대환: {sum_dh:,}만원\n"
+if sum_sm > 0:
+    text_to_copy += f"선말소: {sum_sm:,}만원\n"
+
+st.text_area("📋 결과 내용", value=text_to_copy, height=350)
+
+# 수수료 계산을 위한 재사용 가능한 함수 정의
+def calculate_fees(amount, rate):
+    if amount and re.sub(r"[^\d]", "", amount).isdigit():
+        return int(re.sub(r"[^\d]", "", amount)) * rate / 100
+    return 0
+
+# Streamlit UI
 st.markdown("### 컨설팅 및 브릿지 수수료 계산")
-total_loan = st.text_input("총 대출금액")
-consulting_rate = st.number_input("컨설팅 수수료율 (%)", value=1.5, step=0.1)
-bridge_amount = st.text_input("브릿지 금액")
-bridge_rate = st.number_input("브릿지 수수료율 (%)", value=0.7, step=0.1)
-consulting_fee = int(total_loan.replace(",", "")) * consulting_rate / 100 if total_loan else 0
-bridge_fee = int(bridge_amount.replace(",", "")) * bridge_rate / 100 if bridge_amount else 0
-total_fee = consulting_fee + bridge_fee
 
-st.write(f"컨설팅 비용: {consulting_fee:,.0f}만원")
-st.write(f"브릿지 비용: {bridge_fee:,.0f}만원")
-st.write(f"🔗 총 비용: {total_fee:,.0f}만원")
+# 입력 필드
+total_loan = st.text_input ("총 대출금액")
+컨설팅_rate = st.number_input ("컨설팅 수수료율(%), 값=1.5, 단계=0.1)
 
-text_to_copy += f"\n컨설팅 비용: {consulting_fee:,.0f}만원\n"
-text_to_copy += f"브릿지 비용: {bridge_fee:,.0f}만원\n"
-text_to_copy += f"🔗 총 비용: {total_fee:,.0f}만원"
+브리지 양 = st.text_input ("브릿지 금액")
+bridge_rate = st.number_input ("브릿지 수수료율(%), 값=0.7, 단계=0.1)
 
-def is_valid_item(item):
-    return any([
-        item["설정자"].strip(),
-        re.sub(r"[^\d]", "", item["채권최고액"] or ""),
-        re.sub(r"[^\d]", "", item["원금"] or "")
-    ])
+# 수수료 계산
+컨설팅_fee = 계산_fees(총_loan, 컨설팅_요금)
+bridge_fee = 계산_fees(bridge_금액, bridge_rate)
+총_fee = 컨설팅_fee + 브리지_fee
 
-# 항상 표시
-st.text_area("📋 복사해서 붙여넣기", value=text_to_copy, height=550)
+# 결과 출력
+st.write(f"컨설팅 비용): {int(consult_fee):,}만원")
+st.write(f"브릿지 비용): {int(bridge_fee):,}만원")
+st.write(f"🔗 총 비용: {int(총_fee):,}만원")
 
-# 버튼 누르면 강조해서 다시 보여주기
-if st.button("🔗 복사할 내용 보기"):
-    st.success("복사해서 붙여넣으세요!")
+# CSS를 활용한 UI 스타일 개선
+st.markdown(
+    """
+ <스타일>
+ /* 전체 배경색 */
+ .메인 {
+ 배경색: #FFDFB9;
+ }
 
+ /* 입력 필드 스타일 */
+ .stTextInput, .stNumber입력, .stSelectbox {
+ 배경색: #FFFFF;
+ 경계: 1px 고체 #CCCCCCC;
+ 국경 radius: 5 px;
+ 패딩: 5 px;
+ }
+
+ /* 버튼 스타일 */
+ .stButton>버튼 {
+ 배경색: #007BFF;
+ 색상: 흰색;
+ 경계: 없음;
+ 국경 radius: 5 px;
+ 패딩: 10 px 20 px;
+ 글꼴 크기: 16 px;
+ 커서: 포인터;
+ }
+ .stButton>버튼:호버 {
+ 배경색: #0056b3;
+ }
+ </스타일>
+ """
+ 안전하지 않은_allow_html=True
+)
