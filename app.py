@@ -241,20 +241,38 @@ def calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_
 has_maintain = any(item["진행구분"] == "유지" for item in items)
 has_senior = any(item["진행구분"] in ["대환", "선말소"] for item in items)
 
-# 선순위 및 후순위 출력
+# 💡 100 단위로 내림 처리하는 함수
+def floor_to_unit(value, unit=100):
+    return value // unit * unit
+
+# ✅ 선순위 및 후순위 출력
 for ltv in ltv_selected:
-    # ✅ 선순위는 "유지"가 없을 때만
+    # ✅ 선순위는 "유지"가 없을 때만 계산
     if has_senior and not has_maintain:
-        limit_senior, avail_senior = calculate_ltv(total_value, deduction, senior_principal_sum, 0, ltv, is_senior=True)
+        limit_senior, avail_senior = calculate_ltv(
+            total_value, deduction, senior_principal_sum, 0, ltv, is_senior=True
+        )
+
+        # ⬇️ 여기서 100단위로 버림
+        limit_senior = floor_to_unit(limit_senior)
+        avail_senior = floor_to_unit(avail_senior)
+
         text_to_copy += f"\n✅ 선순위 LTV {ltv}% ☞ 대출가능금액 {limit_senior:,} 가용 {avail_senior:,}"
 
-    # ✅ 후순위는 "유지"가 있을 때만
+    # ✅ 후순위는 "유지"가 있을 때만 계산
     if has_maintain:
         maintain_maxamt_sum = sum(
             int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
             for item in items if item["진행구분"] == "유지"
         )
-        limit_sub, avail_sub = calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=False)
+        limit_sub, avail_sub = calculate_ltv(
+            total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=False
+        )
+
+        # ⬇️ 여기서도 100단위로 버림
+        limit_sub = floor_to_unit(limit_sub)
+        avail_sub = floor_to_unit(avail_sub)
+
         text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}"
 
 # 📍 진행구분별 원금 합계
