@@ -241,7 +241,7 @@ for ltv in ltv_selected:
     # ✅ 선순위는 "유지"가 없을 때만
     if has_senior and not has_maintain:
         limit_senior, avail_senior = calculate_ltv(total_value, deduction, senior_principal_sum, 0, ltv, is_senior=True)
-        text_to_copy += f"\n✅ 선순위 LTV {ltv}% 대출가능금액: {limit_senior:,}만 [가용: {avail_senior:,}만]"
+        text_to_copy += f"\n✅ 선순위 LTV {ltv}% ☞ 대출가능금액: {limit_senior:,}만 [가용: {avail_senior:,}만]"
 
 
     # ✅ 후순위는 "유지"가 있을 때만
@@ -251,7 +251,7 @@ for ltv in ltv_selected:
             for item in items if item["진행구분"] == "유지"
         )
         limit_sub, avail_sub = calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=False)
-        text_to_copy += f"\n✅ 후순위 LTV {ltv}% 대출가능금액: {limit_sub:,}만 [가용: {avail_sub:,}만]\n"
+        text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액: {limit_sub:,}만 [가용: {avail_sub:,}만]\n"
 
 # 📍 진행구분별 원금 합계
 text_to_copy += "\n[진행구분별 원금 합계]\n"
