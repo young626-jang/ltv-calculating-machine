@@ -225,24 +225,28 @@ if valid_items:
 def calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=True):
     if is_senior:
         # 선순위 계산
-        limit = int(total_value * (ltv / 100) - deduction) // 10 * 10
-        available = int(limit - senior_principal_sum) // 10 * 10
+        limit = int(total_value * (ltv / 100) - deduction)
+        available = int(limit - senior_principal_sum)
     else:
         # 후순위 계산
-        limit = int(total_value * (ltv / 100) - maintain_maxamt_sum - deduction) // 10 * 10
-        available = int(limit - senior_principal_sum) // 10 * 10
+        limit = int(total_value * (ltv / 100) - maintain_maxamt_sum - deduction)
+        available = int(limit - senior_principal_sum)
+    
+    # 10만 단위로 반올림
+    limit = (limit // 10) * 10
+    available = (available // 10) * 10
     return limit, available
 
 # "유지"와 관련된 조건 미리 계산
 has_maintain = any(item["진행구분"] == "유지" for item in items)
 has_senior = any(item["진행구분"] in ["대환", "선말소"] for item in items)
 
+# 선순위 및 후순위 출력
 for ltv in ltv_selected:
     # ✅ 선순위는 "유지"가 없을 때만
     if has_senior and not has_maintain:
         limit_senior, avail_senior = calculate_ltv(total_value, deduction, senior_principal_sum, 0, ltv, is_senior=True)
-        text_to_copy += f"\n✅ 선순위 LTV {ltv}% ☞ 대출가능금액: {limit_senior:,}만 [가용: {avail_senior:,}만]"
-
+        text_to_copy += f"\n✅ 선순위 LTV {ltv}% ☞ 대출가능금액 {limit_senior:,} 가용 {avail_senior:,}"
 
     # ✅ 후순위는 "유지"가 있을 때만
     if has_maintain:
@@ -251,7 +255,7 @@ for ltv in ltv_selected:
             for item in items if item["진행구분"] == "유지"
         )
         limit_sub, avail_sub = calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=False)
-        text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액: {limit_sub:,}만 [가용: {avail_sub:,}만]\n"
+        text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}"
 
 # 📍 진행구분별 원금 합계
 text_to_copy += "\n[진행구분별 원금 합계]\n"
