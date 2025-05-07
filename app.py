@@ -215,7 +215,7 @@ for item in items:
 
 # 대출 항목 출력
 if valid_items:
-    text_to_copy += "\n[대출 항목]\n"
+    text_to_copy += "\n📋 대출 항목\n"
     for item in valid_items:
         max_amt = int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
         principal_amt = int(re.sub(r"[^\d]", "", item.get("원금", "") or "0"))
