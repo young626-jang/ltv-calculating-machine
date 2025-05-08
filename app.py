@@ -74,9 +74,17 @@ if uploaded_file:
 else:
     extracted_address, extracted_area, floor_num = "", "", None
 
+def format_area():
+    raw = st.session_state.get("area_input", "")
+    clean = re.sub(r"[^\d.]", "", raw)
+    if clean and not raw.endswith("㎡"):
+        st.session_state["area_input"] = f"{clean}㎡"
+
 # 층수에 따른 일반가/하안가 구분
 address_input = st.text_input("주소", extracted_address, key="address_input")
-area_input = st.text_input("전용면적 (㎡)", extracted_area)
+
+# 면적 입력란 (자동 단위)
+area_input = st.text_input("전용면적 (㎡)", extracted_area, key="area_input", on_change=format_area)
 
 # ✅ 주소 입력값에서 직접 실시간으로 층수 추출
 floor_match = re.findall(r"제(\d+)층", address_input)
@@ -199,7 +207,7 @@ text_to_copy = ""
 text_to_copy = f"📍 주소: {address_input}\n" + text_to_copy
 # 📍 일반가 / 하안가 여부 + KB시세
 type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
-text_to_copy += f"{type_of_price} | KB시세: {raw_price_input}만 | 방공제 금액: {deduction:,}만\n"
+text_to_copy += f"{type_of_price} | KB시세: {raw_price_input}만 | 전용면적: {area_input} | 방공제 금액: {deduction:,}만\n"
 
 # 대출 항목 조건 필터
 valid_items = []
