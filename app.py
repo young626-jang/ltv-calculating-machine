@@ -64,6 +64,50 @@ def parse_korean_number(text: str) -> int:
 # 파일 업로드
 uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
 
+# PDF 페이지를 이미지로 변환하여 반환하는 함수
+def pdf_to_image(file_path, page_num):
+    doc = fitz.open(file_path)
+    page = doc.load_page(page_num)  # 페이지 로드
+    pix = page.get_pixmap()  # 페이지를 이미지로 변환
+    img = pix.tobytes("png")  # PNG 형식으로 이미지 바이트로 변환
+    return img
+
+# 페이지 상태 저장
+if uploaded_file:
+    path = f"./{uploaded_file.name}"
+    with open(path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    # PDF의 총 페이지 수 가져오기
+    doc = fitz.open(path)
+    total_pages = doc.page_count
+
+    # Streamlit의 세션 상태를 사용하여 현재 페이지를 추적
+    if "current_page" not in st.session_state:
+        st.session_state["current_page"] = 0  # 초기 페이지는 첫 번째 페이지
+
+    # 현재 페이지의 이미지를 표시
+    col1, col2 = st.columns(2)  # 두 열로 나누기
+    with col1:
+        if st.session_state["current_page"] < total_pages:
+            img_left = pdf_to_image(path, st.session_state["current_page"])
+            st.image(img_left, caption=f"Page {st.session_state['current_page'] + 1} of {total_pages}")
+
+    with col2:
+        if st.session_state["current_page"] + 1 < total_pages:
+            img_right = pdf_to_image(path, st.session_state["current_page"] + 1)
+            st.image(img_right, caption=f"Page {st.session_state['current_page'] + 2} of {total_pages}")
+
+    # 페이지 넘기기 버튼
+    col1, col2 = st.columns([1, 5])  # 버튼을 양옆으로 배치
+    with col1:
+        if st.button("◀", key="prev_page"):
+            if st.session_state["current_page"] > 0:
+                st.session_state["current_page"] -= 2  # 두 페이지씩 이동
+    with col2:
+        if st.button("▶", key="next_page"):
+            if st.session_state["current_page"] < total_pages - 2:
+                st.session_state["current_page"] += 2  # 두 페이지씩 이동
 if uploaded_file:
     path = f"./{uploaded_file.name}"
     with open(path, "wb") as f:
@@ -80,67 +124,57 @@ def format_area():
     if clean and not raw.endswith("㎡"):
         st.session_state["area_input"] = f"{clean}㎡"
 
-# 층수에 따른 일반가/하안가 구분
-address_input = st.text_input("주소", extracted_address, key="address_input")
+# 시세 조회부터 LTV 비율 입력까지 하나의 단락으로 묶기
+with st.expander("접기", expanded=True):
 
-# 면적 입력란 (자동 단위)
-area_input = st.text_input("전용면적 (㎡)", extracted_area, key="area_input", on_change=format_area)
+    # 주소 입력란 (자동 추출)
+    address_input = st.text_input("주소", extracted_address, key="address_input")
 
-# ✅ 주소 입력값에서 직접 실시간으로 층수 추출
-floor_match = re.findall(r"제(\d+)층", address_input)
-floor_num = int(floor_match[-1]) if floor_match else None
+    # 면적 입력란 (자동 추출)
+    area_input = st.text_input("전용면적 (㎡)", extracted_area, key="area_input", on_change=format_area)
 
-# ✅ 이 아래는 그대로 유지하면 잘 작동함
-if floor_num is not None:
-    if floor_num <= 2:
-        st.markdown('<span style="color:red; font-weight:bold; font-size:18px">📉 하안가</span>', unsafe_allow_html=True)
-    else:
-        st.markdown('<span style="color:#007BFF; font-weight:bold; font-size:18px">📈 일반가</span>', unsafe_allow_html=True)
+    # 층수에 따른 일반가/하안가 구분
+    floor_match = re.findall(r"제(\d+)층", address_input)
+    floor_num = int(floor_match[-1]) if floor_match else None
 
-if st.button("KB 시세 조회"):
-    url = "https://kbland.kr/map?xy=37.5205559,126.9265729,17"
-    st.components.v1.html(f"<script>window.open('{url}','_blank')</script>", height=0)
+    # ✅ 이 아래는 그대로 유지하면 잘 작동함
+    if floor_num is not None:
+        if floor_num <= 2:
+            st.markdown('<span style="color:red; font-weight:bold; font-size:18px">📉 하안가</span>', unsafe_allow_html=True)
+        else:
+            st.markdown('<span style="color:#007BFF; font-weight:bold; font-size:18px">📈 일반가</span>', unsafe_allow_html=True)
 
-# 숫자 입력값을 쉼표로 포맷팅하는 함수
-def format_kb_price():
-    raw = st.session_state.get("raw_price", "")
-    clean = re.sub(r"[^\d]", "", raw)  # 숫자만 남기기
-    if clean.isdigit():
-        st.session_state["raw_price"] = "{:,}".format(int(clean))  # 쉼표 추가
-    else:
-        st.session_state["raw_price"] = ""  # 유효하지 않은 입력은 빈 문자열로 설정
+    def format_kb_price():
+        raw = st.session_state.get("raw_price", "")
+        clean = re.sub(r"[^\d]", "", raw)
+        if clean.isdigit():
+            st.session_state["raw_price"] = "{:,}".format(int(clean))
+        else:
+            st.session_state["raw_price"] = ""
 
-# 초기값 동기화
-if "raw_price" not in st.session_state:
-    st.session_state["raw_price"] = "0"  # 초기값 설정
+    if "raw_price" not in st.session_state:
+        st.session_state["raw_price"] = "0"
 
-# KB 시세 입력란 (콤마 자동 처리)
-raw_price_input = st.text_input(
-    "KB 시세 (만원)", 
-    key="raw_price", 
-    on_change=format_kb_price
-)
+    raw_price_input = st.text_input("KB 시세 (만원)", key="raw_price", on_change=format_kb_price)
 
-# 방공제 입력
-region = st.selectbox("방공제 지역 선택", [""] + list(region_map.keys()))
-default_d = region_map.get(region, 0)
-manual_d = st.text_input("방공제 금액 (만)", f"{default_d:,}")
-deduction = int(re.sub(r"[^\d]", "", manual_d)) if manual_d else default_d
+    region = st.selectbox("방공제 지역 선택", [""] + list(region_map.keys()))
+    default_d = region_map.get(region, 0)
+    manual_d = st.text_input("방공제 금액 (만)", f"{default_d:,}")
+    deduction = int(re.sub(r"[^\d]", "", manual_d)) if manual_d else default_d
 
-# LTV 입력 2개
-col1, col2 = st.columns(2)
-raw_ltv1 = col1.text_input("LTV 비율 ①", "80")
-raw_ltv2 = col2.text_input("LTV 비율 ②", "")
+    col1, col2 = st.columns(2)
+    raw_ltv1 = col1.text_input("LTV 비율 ①", "80")
+    raw_ltv2 = col2.text_input("LTV 비율 ②", "")
 
-ltv_selected = []
-for val in [raw_ltv1, raw_ltv2]:
-    try:
-        v = int(val)
-        if 1 <= v <= 100:
-            ltv_selected.append(v)
-    except:
-        pass
-ltv_selected = list(dict.fromkeys(ltv_selected))
+    ltv_selected = []
+    for val in [raw_ltv1, raw_ltv2]:
+        try:
+            v = int(val)
+            if 1 <= v <= 100:
+                ltv_selected.append(v)
+        except:
+            pass
+    ltv_selected = list(dict.fromkeys(ltv_selected))
 
 # 숫자 입력값을 쉼표로 포맷팅하는 함수
 def format_with_comma(key):
