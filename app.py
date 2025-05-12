@@ -51,9 +51,13 @@ def parse_korean_number(text: str) -> int:
     m = re.search(r"(\d+)\s*억", txt)
     if m:
         total += int(m.group(1)) * 10000
+    m = re.search(r"(\d+)\s*천만", txt)
+    if m:
+        total += int(m.group(1)) * 1000
     m = re.search(r"(\d+)\s*만", txt)
     if m:
         total += int(m.group(1))
+    # 만약 위에서 못 잡으면 그냥 숫자 처리
     if total == 0:
         try:
             total = int(txt)
@@ -121,9 +125,9 @@ else:
 # 📌 KB 시세 입력값 포맷팅 함수 정의
 def format_kb_price():
     raw = st.session_state.get("raw_price", "")
-    clean = re.sub(r"[^\d]", "", raw)
-    if clean.isdigit():
-        st.session_state["raw_price"] = "{:,}".format(int(clean))
+    clean = parse_korean_number(raw)  # 한글 단위 포함 처리
+    if clean:
+        st.session_state["raw_price"] = "{:,}".format(clean)
     else:
         st.session_state["raw_price"] = ""
 
@@ -327,7 +331,7 @@ if sum_dh > 0:
 if sum_sm > 0:
     text_to_copy += f"선말소: {sum_sm:,}만\n"
 
-st.text_area("📋 결과 내용", value=text_to_copy, height=250)
+st.text_area("📋 결과 내용", value=text_to_copy, height=280)
 
 # 수수료 계산을 위한 재사용 가능한 함수 정의
 def calculate_fees(amount, rate):
