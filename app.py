@@ -143,7 +143,7 @@ with st.expander("접기", expanded=True):
             st.markdown('<span style="color:red; font-weight:bold; font-size:18px">📉 하안가</span>', unsafe_allow_html=True)
         else:
             st.markdown('<span style="color:#007BFF; font-weight:bold; font-size:18px">📈 일반가</span>', unsafe_allow_html=True)
-
+    address_input = st.text_input("주소", extracted_address, key="address_input")    
     def format_kb_price():
         raw = st.session_state.get("raw_price", "")
         clean = re.sub(r"[^\d]", "", raw)
