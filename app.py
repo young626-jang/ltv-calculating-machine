@@ -99,19 +99,24 @@ if uploaded_file:
 
     with col2:
         if st.session_state["current_page"] + 1 < total_pages:
-            img_right = pdf_to_image(path, st.session_state["current_page"] + 1)
+            img_right = pdf_to_image(path, st.session_state["current_page"] + 1) 
             st.image(img_right, caption=f"Page {st.session_state['current_page'] + 2} of {total_pages}")
 
-    # 페이지 넘기기 버튼
-    col1, col2 = st.columns([1, 5])  # 버튼을 양옆으로 배치
-    with col1:
-        if st.button("◀", key="prev_page"):
-            if st.session_state["current_page"] > 0:
-                st.session_state["current_page"] -= 2  # 두 페이지씩 이동
+    col1, col2, col3 = st.columns(3)
+
     with col2:
-        if st.button("▶", key="next_page"):
-            if st.session_state["current_page"] < total_pages - 2:
-                st.session_state["current_page"] += 2  # 두 페이지씩 이동
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            if st.button("◀", key="prev_page"):
+                if st.session_state["current_page"] > 0:
+                    st.session_state["current_page"] -= 2
+
+        with col_right:
+            if st.button("▶", key="next_page"):
+                if st.session_state["current_page"] < total_pages - 2:
+                    st.session_state["current_page"] += 2
+
 if uploaded_file:
     path = f"./{uploaded_file.name}"
     with open(path, "wb") as f:
@@ -383,13 +388,13 @@ st.markdown(
     <style>
     /* 🎨 전체 앱 배경색 설정 */
     .stApp {
-        background-color: #BEBFC0;  /* 연한 회색-블루 배경 */
+        background-color: #C7D3D4  /* 연한 회색-블루 배경 */
     }
 
     /* ✏️ 기본 입력 필드 (input, select, textarea) 스타일 */
     input, select, textarea {
-        background-color: #DECBBB;                /* 흰 배경 */
-        border: 1px solid #CCCCCC;               /* 연한 회색 테두리 */
+        background-color: #F2EDD7                /* 흰 배경 */
+        border: 1px solid #02343F               /* 연한 회색 테두리 */
         border-radius: 8px;                      /* 둥근 모서리 */
         padding: 10px;                           /* 내부 여백 */
         font-size: 14px;                         /* 글자 크기 */
@@ -397,33 +402,35 @@ st.markdown(
         transition: border-color 0.3s ease, box-shadow 0.3s ease;  /* 포커스 시 부드러운 효과 */
     }
 
-    /* ✨ 입력 필드 포커스 상태 스타일 */
+     # 입력 필드 포커스 시 스타일
     input:focus, select:focus, textarea:focus {
-        border-color: #ADB8ED;                   /* 빨간색 강조 테두리 */
+        border-color: #FCF6F5 /* 진한 파랑 */
         box-shadow: 0 0 8px rgba(0, 123, 255, 0.3); /* 파란 그림자 효과 */
     }
 
     /* 🔵 Streamlit 버튼 기본 스타일 */
     .stButton > button {
-        background: linear-gradient(90deg, #007BFF, #0056b3);  /* 파란색 그라디언트 */
-        color: white;                            /* 글자색: 흰색 */
-        border: none;                            /* 테두리 없음 */
-        border-radius: 8px;                      /* 둥근 모서리 */
-        padding: 12px 24px;                      /* 버튼 내부 여백 */
-        font-size: 16px;                         /* 글자 크기 */
-        font-weight: bold;                       /* 글자 두껍게 */
-        cursor: pointer;                         /* 마우스 올리면 손가락 모양 */
-        transition: transform 0.2s ease, box-shadow 0.2s ease;  /* 클릭 애니메이션 효과 */
+        background-color: #1F64FF;  /* 진하고 자연스러운 파랑 */
+        color: white; /* 버튼 글자색 */
+        border: 1px solid #1F64FF; /* 버튼 테두리 */
+        border-radius: 6px; /* 둥근 모서리 */
+        padding: 6px 14px; # 버튼 내부 여백
+        font-size: 12px; # 글자 크기
+        font-weight: 500; # 글자 두께
+        cursor: pointer; # 마우스 커서 포인터로 변경
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 약한 그림자 */
+        transition: background-color 0.2s ease, box-shadow 0.2s ease; /* 부드러운 효과 */
     }
 
     /* 🖱️ 버튼 위에 마우스 올렸을 때 */
     .stButton > button:hover {
-        background: linear-gradient(90deg, #0056b3, #003f7f);  /* 더 어두운 파랑 */
+        background: linear-gradient(90deg, #0056b3, #00539C);  # 버튼 색상 변화
+        color: white; /* 버튼 글자색 */
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);              /* 그림자 강조 */
     }
 
     /* ⬇️ 버튼 클릭 시 */
-    .stButton > button:active {
+    .stButton > button:active { # 클릭 시 효과
         transform: scale(0.98);                /* 살짝 줄어드는 효과 */
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);  /* 그림자 줄이기 */
     }
