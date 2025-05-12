@@ -118,53 +118,56 @@ if uploaded_file:
 else:
     extracted_address, extracted_area, floor_num = "", "", None
 
+# 📌 KB 시세 입력값 포맷팅 함수 정의
+def format_kb_price():
+    raw = st.session_state.get("raw_price", "")
+    clean = re.sub(r"[^\d]", "", raw)
+    if clean.isdigit():
+        st.session_state["raw_price"] = "{:,}".format(int(clean))
+    else:
+        st.session_state["raw_price"] = ""
+
+# 📌 전용면적 입력값 포맷팅 함수 정의
 def format_area():
     raw = st.session_state.get("area_input", "")
     clean = re.sub(r"[^\d.]", "", raw)
     if clean and not raw.endswith("㎡"):
         st.session_state["area_input"] = f"{clean}㎡"
 
-# 시세 조회부터 LTV 비율 입력까지 하나의 단락으로 묶기
-with st.expander("접기", expanded=True):
+# 📌 세션 초기값 선언
+if "raw_price" not in st.session_state:
+    st.session_state["raw_price"] = "0"
 
-    # 주소 입력란 (자동 추출)
+with st.expander("접기", expanded=True):
     address_input = st.text_input("주소", extracted_address, key="address_input")
 
-    # 면적 입력란 (자동 추출)
-    area_input = st.text_input("전용면적 (㎡)", extracted_area, key="area_input", on_change=format_area)
+    col1, col2 = st.columns(2)
+    raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price", on_change=format_kb_price, args=())
+    area_input = col2.text_input("전용면적 (㎡)", extracted_area, key="area_input", on_change=format_area, args=())
 
-    # 층수에 따른 일반가/하안가 구분
     floor_match = re.findall(r"제(\d+)층", address_input)
     floor_num = int(floor_match[-1]) if floor_match else None
 
-    # ✅ 이 아래는 그대로 유지하면 잘 작동함
     if floor_num is not None:
         if floor_num <= 2:
             st.markdown('<span style="color:red; font-weight:bold; font-size:18px">📉 하안가</span>', unsafe_allow_html=True)
         else:
             st.markdown('<span style="color:#007BFF; font-weight:bold; font-size:18px">📈 일반가</span>', unsafe_allow_html=True)
-    
-    def format_kb_price():
-        raw = st.session_state.get("raw_price", "")
-        clean = re.sub(r"[^\d]", "", raw)
-        if clean.isdigit():
-            st.session_state["raw_price"] = "{:,}".format(int(clean))
-        else:
-            st.session_state["raw_price"] = ""
 
-    if "raw_price" not in st.session_state:
-        st.session_state["raw_price"] = "0"
+    if st.button("KB 시세 조회"):
+        url = "https://kbland.kr/map?xy=37.5205559,126.9265729,17"
+        st.components.v1.html(f"<script>window.open('{url}','_blank')</script>", height=0)
 
-    raw_price_input = st.text_input("KB 시세 (만원)", key="raw_price", on_change=format_kb_price)
-
-    region = st.selectbox("방공제 지역 선택", [""] + list(region_map.keys()))
+    # 👉 방공제 지역 & 방공제 금액 같은 줄에 붙이기
+    col1, col2 = st.columns(2)
+    region = col1.selectbox("방공제 지역 선택", [""] + list(region_map.keys()))
     default_d = region_map.get(region, 0)
-    manual_d = st.text_input("방공제 금액 (만)", f"{default_d:,}")
+    manual_d = col2.text_input("방공제 금액 (만)", f"{default_d:,}")
     deduction = int(re.sub(r"[^\d]", "", manual_d)) if manual_d else default_d
 
     col1, col2 = st.columns(2)
     raw_ltv1 = col1.text_input("LTV 비율 ①", "80")
-    raw_ltv2 = col2.text_input("LTV 비율 ②", "")
+    raw_ltv2 = col2.text_input("LTV 비율 ②", "85")
 
     ltv_selected = []
     for val in [raw_ltv1, raw_ltv2]:
@@ -187,7 +190,7 @@ def format_with_comma(key):
 
 # 대출 항목 입력
 st.markdown("### 📝 대출 항목 입력")
-rows = st.number_input("항목 개수", min_value=1, max_value=10, value=2)
+rows = st.number_input("항목 개수", min_value=1, max_value=10, value=3)
 items = []
 for i in range(int(rows)):
     cols = st.columns(5)
@@ -324,7 +327,7 @@ if sum_dh > 0:
 if sum_sm > 0:
     text_to_copy += f"선말소: {sum_sm:,}만\n"
 
-st.text_area("📋 결과 내용", value=text_to_copy, height=300)
+st.text_area("📋 결과 내용", value=text_to_copy, height=250)
 
 # 수수료 계산을 위한 재사용 가능한 함수 정의
 def calculate_fees(amount, rate):
@@ -344,25 +347,15 @@ def format_with_comma(key):
     else:
         st.session_state[key] = ""
 
-# 총 대출금액 입력란 (콤마 자동 처리)
-total_loan = st.text_input(
-    "총 대출금액", 
-    key="total_loan", 
-    on_change=format_with_comma, 
-    args=("total_loan",)
-)
+# 👉 총 대출금액 & 브릿지 금액 같은 줄에 붙이기
+col1, col2 = st.columns(2)
+total_loan = col1.text_input("총 대출금액", key="total_loan", on_change=format_with_comma, args=("total_loan",))
+bridge_amount = col2.text_input("브릿지 금액", key="bridge_amount", on_change=format_with_comma, args=("bridge_amount",))
 
-# 브릿지 금액 입력란 (콤마 자동 처리)
-bridge_amount = st.text_input(
-    "브릿지 금액", 
-    key="bridge_amount", 
-    on_change=format_with_comma, 
-    args=("bridge_amount",)
-)
-
-# 수수료율 입력
-consulting_rate = st.number_input("컨설팅 수수료율(%)", value=1.5, step=0.1)
-bridge_rate = st.number_input("브릿지 수수료율(%)", value=0.7, step=0.1)
+# 👉 수수료율 입력 (같은 줄에 깔끔하게)
+col1, col2 = st.columns(2)
+consulting_rate = col1.number_input("컨설팅 수수료율(%)", value=1.5, step=0.1)
+bridge_rate = col2.number_input("브릿지 수수료율(%)", value=0.7, step=0.1)
 
 # 수수료 계산 함수
 def calculate_fees(amount, rate):
