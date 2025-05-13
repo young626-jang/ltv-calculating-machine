@@ -327,14 +327,20 @@ for ltv in ltv_selected:
         limit_sub = floor_to_unit(limit_sub)
         avail_sub = floor_to_unit(avail_sub)
 
-        text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}\n\n[진행구분별 원금 합계]\n"
+    # LTV별 결과 반복
+    for ltv in ltv_list:
+        limit = limit_dict.get(ltv, 0)
+        avail = avail_dict.get(ltv, 0)
+        report += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit:,} 가용 {avail:,}\n"
 
-if sum_dh > 0:
-    text_to_copy += f"대환: {sum_dh:,}만\n"
-if sum_sm > 0:
-    text_to_copy += f"선말소: {sum_sm:,}만\n"
+    # 진행구분별 합계 (항상 LTV 모두 끝난 뒤에 한 번만)
+    report += "\n[진행구분별 원금 합계]\n"
+    if sum_dh > 0:
+        report += f"대환: {sum_dh:,}만\n"
+    if sum_sm > 0:
+        report += f"선말소: {sum_sm:,}만\n"
 
-st.text_area("📋 결과 내용", value=text_to_copy, height=280)
+    return report
 
 # Streamlit UI
 
