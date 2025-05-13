@@ -339,16 +339,16 @@ if sum_sm > 0:
 
 st.text_area("📋 결과 내용", value=text_to_copy, height=280)
 
-# 수수료 계산을 위한 재사용 가능한 함수 정의
+# Streamlit UI
+st.markdown("### 💰 컨설팅 및 브릿지 수수료 계산")
+
+# ✅ 수수료 계산 함수 = 계산기 공식
 def calculate_fees(amount, rate):
     if amount and re.sub(r"[^\d]", "", amount).isdigit():
         return int(re.sub(r"[^\d]", "", amount)) * rate / 100
     return 0
 
-# Streamlit UI
-st.markdown("### 💰 컨설팅 및 브릿지 수수료 계산")
-
-# 숫자 입력값을 쉼표로 포맷팅하는 함수
+# ✅ 숫자 입력값을 쉼표로 포맷팅하는 함수 (입력 보정)
 def format_with_comma(key):
     raw = st.session_state.get(key, "")
     clean = re.sub(r"[^\d]", "", raw)
@@ -357,31 +357,28 @@ def format_with_comma(key):
     else:
         st.session_state[key] = ""
 
-# 👉 총 대출금액 & 브릿지 금액 같은 줄에 붙이기
+# ✅ 입력 = 사용자 입력 UI
 col1, col2 = st.columns(2)
-total_loan = col1.text_input("총 대출금액", key="total_loan", on_change=format_with_comma, args=("total_loan",))
-bridge_amount = col2.text_input("브릿지 금액", key="bridge_amount", on_change=format_with_comma, args=("bridge_amount",))
+with col1:
+    total_loan = st.text_input("총 대출금액", key="total_loan", on_change=format_with_comma, args=("total_loan",))
+with col2:
+    consulting_rate = st.number_input("컨설팅 수수료율(%)", value=1.5, step=0.1)
 
-# 👉 수수료율 입력 (같은 줄에 깔끔하게)
-col1, col2 = st.columns(2)
-consulting_rate = col1.number_input("컨설팅 수수료율(%)", value=1.5, step=0.1)
-bridge_rate = col2.number_input("브릿지 수수료율(%)", value=0.7, step=0.1)
+col3, col4 = st.columns(2)
+with col3:
+    bridge_amount = st.text_input("브릿지 금액", key="bridge_amount", on_change=format_with_comma, args=("bridge_amount",))
+with col4:
+    bridge_rate = st.number_input("브릿지 수수료율(%)", value=0.7, step=0.1)
 
-# 수수료 계산 함수
-def calculate_fees(amount, rate):
-    if amount and re.sub(r"[^\d]", "", amount).isdigit():
-        return int(re.sub(r"[^\d]", "", amount)) * rate / 100
-    return 0
-
-# 수수료 계산
+# ✅ 함수 호출 = 계산기 눌러서 실행
 consulting_fee = calculate_fees(total_loan, consulting_rate)
 bridge_fee = calculate_fees(bridge_amount, bridge_rate)
 total_fee = consulting_fee + bridge_fee
 
-# 결과 출력
-st.write(f"컨설팅 비용: {int(consulting_fee):,}만")
-st.write(f"브릿지 비용: {int(bridge_fee):,}만")
-st.write(f"🔗 총 비용: {int(total_fee):,}만")
+# ✅ 출력 = 화면에 결과 표시
+st.markdown(f"**컨설팅 비용:** {int(consulting_fee):,}만")
+st.markdown(f"**브릿지 비용:** {int(bridge_fee):,}만")
+st.markdown(f"🔗 **총 비용:** {int(total_fee):,}만")
 
 # CSS를 활용한 UI 스타일 개선
 st.markdown(
