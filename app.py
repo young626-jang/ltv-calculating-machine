@@ -327,32 +327,16 @@ for ltv in ltv_selected:
         limit_sub = floor_to_unit(limit_sub)
         avail_sub = floor_to_unit(avail_sub)
 
-# ✅ 예시 LTV별 계산 결과 (필요시 실제 값으로 교체)
-ltv_selected = [80, 85]
-limit_dict = {80: 0, 85: 0}   # LTV별 대출가능금액
-avail_dict = {80: 0, 85: 0}   # LTV별 가용금액
+        text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}"
 
-sum_dh = 10000  # 대환 합계
-sum_sm = 5000   # 선말소 합계
-
-# ✅ 메모 누적 시작
-text_to_copy = ""
-
-# ✅ LTV 결과 (LTV별 dict에서 가져와서 오류 없이)
-for ltv in ltv_selected:
-    limit_sub = limit_dict.get(ltv, 0)
-    avail_sub = avail_dict.get(ltv, 0)
-    text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}"
-
-# ✅ 진행구분별 원금 합계는 딱 1번 (루프 밖)
-text_to_copy += "\n\n[진행구분별 원금 합계]\n"
+# 📍 진행구분별 원금 합계
+text_to_copy += "\n"\n[진행구분별 원금 합계]\n"
 if sum_dh > 0:
     text_to_copy += f"대환: {sum_dh:,}만\n"
 if sum_sm > 0:
     text_to_copy += f"선말소: {sum_sm:,}만\n"
-    
-# ✅ 결과 메모
-st.text_area("📋 결과 메모", value=text_to_copy, height=300)
+
+st.text_area("📋 결과 내용", value=text_to_copy, height=300)
 
 # Streamlit UI
 st.markdown("### 💰 컨설팅 및 브릿지 수수료 계산")
