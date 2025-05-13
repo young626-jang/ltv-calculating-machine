@@ -340,15 +340,17 @@ if sum_sm > 0:
 st.text_area("📋 결과 내용", value=text_to_copy, height=280)
 
 # Streamlit UI
+
 st.markdown("### 💰 컨설팅 및 브릿지 수수료 계산")
 
-# ✅ 수수료 계산 함수 = 계산기 공식
+# ✅ 수수료 계산 함수 (입력과 결과 모두 '만' 단위 기준)
 def calculate_fees(amount, rate):
     if amount and re.sub(r"[^\d]", "", amount).isdigit():
+        # 입력값 숫자만 추출 → 만 단위 그대로 % 계산
         return int(re.sub(r"[^\d]", "", amount)) * rate / 100
     return 0
 
-# ✅ 숫자 입력값을 쉼표로 포맷팅하는 함수 (입력 보정)
+# ✅ 숫자 입력값을 쉼표로 포맷팅하는 함수 ('만' 단위 입력을 보기 좋게)
 def format_with_comma(key):
     raw = st.session_state.get(key, "")
     clean = re.sub(r"[^\d]", "", raw)
@@ -357,25 +359,25 @@ def format_with_comma(key):
     else:
         st.session_state[key] = ""
 
-# ✅ 입력 = 사용자 입력 UI
+# ✅ 입력 UI (명확하게 '만' 단위 입력)
 col1, col2 = st.columns(2)
 with col1:
-    total_loan = st.text_input("총 대출금액", key="total_loan", on_change=format_with_comma, args=("total_loan",))
+    st.text_input("총 대출금액 (만)", key="total_loan", on_change=format_with_comma, args=("total_loan",))
 with col2:
-    consulting_rate = st.number_input("컨설팅 수수료율(%)", value=1.5, step=0.1)
+    consulting_rate = st.number_input("컨설팅 수수료율 (%)", value=1.5, step=0.1)
 
 col3, col4 = st.columns(2)
 with col3:
-    bridge_amount = st.text_input("브릿지 금액", key="bridge_amount", on_change=format_with_comma, args=("bridge_amount",))
+    st.text_input("브릿지 금액 (만)", key="bridge_amount", on_change=format_with_comma, args=("bridge_amount",))
 with col4:
-    bridge_rate = st.number_input("브릿지 수수료율(%)", value=0.7, step=0.1)
+    bridge_rate = st.number_input("브릿지 수수료율 (%)", value=0.7, step=0.1)
 
-# ✅ 함수 호출 = 계산기 눌러서 실행
-consulting_fee = calculate_fees(total_loan, consulting_rate)
-bridge_fee = calculate_fees(bridge_amount, bridge_rate)
+# ✅ 계산 (세션에서 값을 꺼내 만 단위 계산)
+consulting_fee = calculate_fees(st.session_state.get("total_loan", ""), consulting_rate)
+bridge_fee = calculate_fees(st.session_state.get("bridge_amount", ""), bridge_rate)
 total_fee = consulting_fee + bridge_fee
 
-# ✅ 출력 = 화면에 결과 표시
+# ✅ 출력 (결과도 '만' 단위)
 st.markdown(f"**컨설팅 비용:** {int(consulting_fee):,}만")
 st.markdown(f"**브릿지 비용:** {int(bridge_fee):,}만")
 st.markdown(f"🔗 **총 비용:** {int(total_fee):,}만")
