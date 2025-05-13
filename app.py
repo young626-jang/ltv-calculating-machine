@@ -327,11 +327,8 @@ for ltv in ltv_selected:
         limit_sub = floor_to_unit(limit_sub)
         avail_sub = floor_to_unit(avail_sub)
 
-        text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}"
+        text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}\n\n[진행구분별 원금 합계]\n"
 
-# 📍 진행구분별 원금 합계
-text_to_copy += "\n"
-text_to_copy += "[진행구분별 원금 합계]\n"
 if sum_dh > 0:
     text_to_copy += f"대환: {sum_dh:,}만\n"
 if sum_sm > 0:
