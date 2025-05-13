@@ -330,7 +330,7 @@ for ltv in ltv_selected:
         text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}"
 
 # 📍 진행구분별 원금 합계
-    text_to_copy += "\n"\n[진행구분별 원금 합계]\n"
+    text_to_copy += "\n[진행구분별 원금 합계]\n"
 if sum_dh > 0:
     text_to_copy += f"대환: {sum_dh:,}만\n"
 if sum_sm > 0:
