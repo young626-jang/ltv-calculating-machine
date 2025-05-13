@@ -327,6 +327,10 @@ for ltv in ltv_selected:
         limit_sub = floor_to_unit(limit_sub)
         avail_sub = floor_to_unit(avail_sub)
 
+def generate_ltv_report(ltv_list, limit_dict, avail_dict, sum_dh, sum_sm):
+    """LTV별 결과와 진행구분별 합계를 자동으로 깔끔하게 생성하는 보고서 템플릿"""
+    report = ""
+
     # LTV별 결과 반복
     for ltv in ltv_list:
         limit = limit_dict.get(ltv, 0)
