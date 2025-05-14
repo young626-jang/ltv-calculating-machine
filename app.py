@@ -176,7 +176,7 @@ with st.expander("접기", expanded=True):
 
     col1, col2 = st.columns(2)
     raw_ltv1 = col1.text_input("LTV 비율 ①", "80")
-    raw_ltv2 = col2.text_input("LTV 비율 ②", "85")
+    raw_ltv2 = col2.text_input("LTV 비율 ②", "")
 
     ltv_selected = []
     for val in [raw_ltv1, raw_ltv2]:
