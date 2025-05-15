@@ -1,6 +1,8 @@
 import streamlit as st
 import fitz  # PyMuPDF
 import re
+
+# 📦 유틸리티 모듈 import
 from utils_pdf import extract_address_area_floor_from_text, extract_owner_number_from_summary
 from utils_pdfviewer import pdf_viewer_with_navigation
 from utils_deduction import get_deduction_ui
@@ -8,7 +10,8 @@ from utils_ltv import handle_ltv_ui_and_calculation, parse_korean_number
 from utils_fees import handle_fee_ui_and_calculation
 from utils_css import inject_custom_css
 
-def main():
+def run_ltv_app():
+    """💻 LTV 계산기 메인 실행 함수"""
     st.set_page_config(page_title="LTV 계산기 (최종)", layout="wide", initial_sidebar_state="expanded")
     st.title("🏠 LTV 계산기 (주소+면적추출)")
 
@@ -50,17 +53,22 @@ def main():
         raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price")
         area_input = col2.text_input("전용면적 (㎡)", value=extracted_area, key="area_input")
 
+    # ✅ 방공제 UI 호출 (utils_deduction.py)
     deduction = get_deduction_ui(st)
 
+    # ✅ 대출 항목 + LTV 계산 (utils_ltv.py)
     with st.expander("💳 대출 항목 + LTV 계산", expanded=True):
         ltv_results, loan_items, sum_dh, sum_sm = handle_ltv_ui_and_calculation(st, raw_price_input, deduction)
 
+    # ✅ 메모 입력
     with st.expander("📝 메모 입력 (선택)", expanded=True):
         memo_text = st.text_area("메모 입력", height=150)
 
+    # ✅ 수수료 계산 (utils_fees.py)
     with st.expander("💰 수수료 계산", expanded=True):
         consulting_fee, bridge_fee, total_fee = handle_fee_ui_and_calculation(st)
 
+    # ✅ 결과 내용 자동 생성
     st.markdown("### 📋 결과 내용 (자동 생성)")
     text_to_copy = f"고객명: {owner_number}\n주소: {address_input}\n"
     type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
@@ -89,5 +97,6 @@ def main():
 
     st.text_area("📋 결과 내용", value=text_to_copy, height=400)
 
+# ✅ 반드시 __main__ 보호 아래 run_ltv_app() 실행
 if __name__ == "__main__":
-    main()
+    run_ltv_app()
