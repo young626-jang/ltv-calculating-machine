@@ -1,41 +1,22 @@
-import re
 import streamlit as st
+import re
 
-def parse_korean_number(text: str) -> int:
+def handle_fee_ui_and_calculation(st):
     """
-    🔢 한글 숫자 문자열 파싱 함수
-    - '3억 500만' ➡ 30500
-    - '1억 2천만' ➡ 12000
-    - '2500만' ➡ 2500
-    - '1,000' ➡ 1000
+    💰 컨설팅 및 브릿지 수수료 계산 UI + 결과 반환 (Streamlit UI)
+    - 총 대출금, 브릿지 금액 입력
+    - 수수료율 입력
+    - 계산 결과 반환 (컨설팅 수수료, 브릿지 수수료, 총 수수료)
     """
-    txt = text.replace(",", "").strip()
-    total = 0
-    m = re.search(r"(\d+)\s*억", txt)
-    if m:
-        total += int(m.group(1)) * 10000
-    m = re.search(r"(\d+)\s*천만", txt)
-    if m:
-        total += int(m.group(1)) * 1000
-    m = re.search(r"(\d+)\s*만", txt)
-    if m:
-        total += int(m.group(1))
-    if total == 0:
-        try:
-            total = int(txt)
-        except:
-            total = 0
-    return total
+    st.markdown("### 💰 컨설팅 및 브릿지 수수료 계산")
 
-def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
-    """
-    💰 대출 항목 입력 + LTV 계산 UI 및 결과 반환 (Streamlit UI)
-    - 대출 항목 입력
-    - LTV 비율 입력
-    - 선/후순위 계산 결과 반환
-    - 대출 항목 리스트 반환
-    """
-    # ➡️ 숫자 쉼표 포맷팅 함수
+    # ✔ 수수료 계산 함수 (만 단위 입력 ➡ % 계산)
+    def calculate_fees(amount, rate):
+        if amount and re.sub(r"[^\d]", "", amount).isdigit():
+            return int(re.sub(r"[^\d]", "", amount)) * rate / 100
+        return 0
+
+    # ✔ 입력값 쉼표 포맷팅 함수 (숫자만 남기고 포맷)
     def format_with_comma(key):
         raw = st.session_state.get(key, "")
         clean = re.sub(r"[^\d]", "", raw)
@@ -44,100 +25,24 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
         else:
             st.session_state[key] = ""
 
-    # ➡️ LTV 계산 함수 (선순위/후순위)
-    def calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=True):
-        if is_senior:
-            limit = int(total_value * (ltv / 100) - deduction)
-            available = int(limit - senior_principal_sum)
-        else:
-            limit = int(total_value * (ltv / 100) - maintain_maxamt_sum - deduction)
-            available = int(limit - senior_principal_sum)
-        limit = (limit // 10) * 10
-        available = (available // 10) * 10
-        return limit, available
-
-    st.markdown("### 📝 대출 항목 입력")
-
-    # LTV 비율 입력 UI
+    # ➡ 입력 UI 구성
     col1, col2 = st.columns(2)
-    raw_ltv1 = col1.text_input("LTV 비율 ①", "80")
-    raw_ltv2 = col2.text_input("LTV 비율 ②", "")
+    col1.text_input("총 대출금액 (만)", key="total_loan", on_change=format_with_comma, args=("total_loan",))
+    col2.text_input("브릿지 금액 (만)", key="bridge_amount", on_change=format_with_comma, args=("bridge_amount",))
 
-    ltv_selected = []
-    for val in [raw_ltv1, raw_ltv2]:
-        try:
-            v = int(val)
-            if 1 <= v <= 100:
-                ltv_selected.append(v)
-        except:
-            pass
+    col3, col4 = st.columns(2)
+    consulting_rate = col3.number_input("컨설팅 수수료율 (%)", value=1.5, step=0.1)
+    bridge_rate = col4.number_input("브릿지 수수료율 (%)", value=0.7, step=0.1)
 
-    # 대출 항목 입력 UI
-    rows = st.number_input("항목 개수", min_value=1, max_value=10, value=3)
-    items = []
-    for i in range(int(rows)):
-        cols = st.columns(5)
-        lender = cols[0].text_input("설정자", key=f"lender_{i}")
-        max_amt_key = f"maxamt_{i}"
-        cols[1].text_input("채권최고액 (만)", key=max_amt_key, on_change=format_with_comma, args=(max_amt_key,))
-        ratio = cols[2].text_input("설정비율 (%)", "120", key=f"ratio_{i}")
-        try:
-            calc = int(re.sub(r"[^\d]", "", st.session_state.get(max_amt_key, "0")) or 0) * 100 // int(ratio or 100)
-        except:
-            calc = 0
-        principal_key = f"principal_{i}"
-        cols[3].text_input("원금", key=principal_key, value=f"{calc:,}", on_change=format_with_comma, args=(principal_key,))
-        status = cols[4].selectbox("진행구분", ["유지", "대환", "선말소"], key=f"status_{i}")
-        items.append({
-            "설정자": lender,
-            "채권최고액": st.session_state.get(max_amt_key, ""),
-            "설정비율": ratio,
-            "원금": st.session_state.get(principal_key, ""),
-            "진행구분": status
-        })
+    # ➡ 계산
+    consulting_fee = calculate_fees(st.session_state.get("total_loan", ""), consulting_rate)
+    bridge_fee = calculate_fees(st.session_state.get("bridge_amount", ""), bridge_rate)
+    total_fee = consulting_fee + bridge_fee
 
-    # 총 KB시세 파싱
-    total_value = parse_korean_number(raw_price_input)
+    # ➡ 결과 출력
+    st.markdown(f"**컨설팅 비용:** {int(consulting_fee):,}만")
+    st.markdown(f"**브릿지 비용:** {int(bridge_fee):,}만")
+    st.markdown(f"🔗 **총 비용:** {int(total_fee):,}만")
 
-    # 선순위 원금 합계
-    senior_principal_sum = sum(
-        int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
-        for item in items if item.get("진행구분") in ["대환", "선말소"]
-    )
-
-    # 진행 상태 체크
-    has_maintain = any(item["진행구분"] == "유지" for item in items)
-    has_senior = any(item["진행구분"] in ["대환", "선말소"] for item in items)
-
-    # 💡 결과 저장용
-    ltv_results = []
-    loan_items = []
-    sum_dh = sum(
-        int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
-        for item in items if item.get("진행구분") == "대환"
-    )
-    sum_sm = sum(
-        int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
-        for item in items if item.get("진행구분") == "선말소"
-    )
-
-    for ltv in ltv_selected:
-        if has_senior and not has_maintain:
-            limit_senior, avail_senior = calculate_ltv(total_value, deduction, senior_principal_sum, 0, ltv, is_senior=True)
-            ltv_results.append(f"✅ 선순위 LTV {ltv}% ☞ 대출가능금액 {limit_senior:,}만 | 가용 {avail_senior:,}만")
-        if has_maintain:
-            maintain_maxamt_sum = sum(
-                int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
-                for item in items if item["진행구분"] == "유지"
-            )
-            limit_sub, avail_sub = calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=False)
-            ltv_results.append(f"✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,}만 | 가용 {avail_sub:,}만")
-
-    # 대출 항목 요약 리스트
-    for item in items:
-        max_amt = int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
-        principal_amt = int(re.sub(r"[^\d]", "", item.get("원금", "") or "0"))
-        loan_items.append(f"{item['설정자']} | 채권최고액: {max_amt:,} | 비율: {item.get('설정비율', '0')}% | 원금: {principal_amt:,} | {item['진행구분']}")
-
-    # 결과 반환
-    return ltv_results, loan_items, sum_dh, sum_sm
+    # ➡ 결과 반드시 리턴
+    return consulting_fee, bridge_fee, total_fee
