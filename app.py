@@ -267,7 +267,9 @@ sum_sm = sum(
 )
 
 # 📈 기존 추출 데이터와 함께 메모란 생성
-text_to_copy = f"{owner_number}\n" if owner_number else ""
+text_to_copy = ""
+
+text_to_copy += f"{owner_number}\n"
 text_to_copy = f"주소: {address_input}\n" + text_to_copy
 
 # 📍 일반가 / 하안가 여부 + KB시세
