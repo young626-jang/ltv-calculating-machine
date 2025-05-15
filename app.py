@@ -121,7 +121,7 @@ else:
         if st.session_state["current_page"] < total_pages:
             img_left = pdf_to_image(path, st.session_state["current_page"])
             st.image(img_left, caption=f"Page {st.session_state['current_page'] + 1} of {total_pages}")
-            
+
     with col2:
         if st.session_state["current_page"] + 1 < total_pages:
             img_right = pdf_to_image(path, st.session_state["current_page"] + 1) 
@@ -240,6 +240,7 @@ for i in range(int(rows)):
         on_change=format_with_comma, 
         args=(principal_key,)
     )
+    # UI 및 데이터 입력 (정확히 if 안, with 밖, 4칸 유지)
     status = cols[4].selectbox("진행구분", ["유지", "대환", "선말소"], key=f"status_{i}")
     items.append({
         "설정자": lender,
