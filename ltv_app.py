@@ -11,6 +11,32 @@ from utils_ltv import handle_ltv_ui_and_calculation, parse_korean_number
 from utils_fees import handle_fee_ui_and_calculation
 from utils_css import inject_custom_css
 
+# ✅ CSS 주입 함수 (최상단에 항상 호출)
+def inject_custom_css():
+    st.markdown("""
+        <style>
+        html, body, .stApp {
+            background-color: #C7D3D4 !important;
+            color: #02343F !important;
+        }
+        input, select, textarea {
+            background-color: #F2EDD7 !important;
+            border: 1px solid #02343F !important;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .stButton > button {
+            background-color: #02343F !important;
+            color: #F2EDD7 !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+        }
+        .stButton > button:hover {
+            background-color: #011f2a !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
 def run_ltv_app():
     st.title("🏠 LTV 계산기 (주소+면적추출)")
 
@@ -66,7 +92,7 @@ def run_ltv_app():
         consulting_fee, bridge_fee, total_fee = handle_fee_ui_and_calculation(st)
 
     # ✅ 결과 내용 자동 생성
-    st.markdown("### 📋 결과 내용 (자동 생성)")
+    st.markdown("### 📋 결과 내용")
     text_to_copy = f"고객명: {owner_number}\n주소: {address_input}\n"
     type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
     text_to_copy += f"{type_of_price} | KB시세: {raw_price_input}만 | 전용면적: {area_input} | 방공제 금액: {deduction:,}만\n"
@@ -84,13 +110,6 @@ def run_ltv_app():
         text_to_copy += f"대환: {sum_dh:,}만\n"
     if sum_sm > 0:
         text_to_copy += f"선말소: {sum_sm:,}만\n"
-
-    text_to_copy += f"\n컨설팅 수수료: {int(consulting_fee):,}만\n"
-    text_to_copy += f"브릿지 수수료: {int(bridge_fee):,}만\n"
-    text_to_copy += f"총 수수료: {int(total_fee):,}만\n"
-
-    if memo_text:
-        text_to_copy += f"\n[메모]\n{memo_text}"
 
     st.text_area("📋 결과 내용", value=text_to_copy, height=400)
 
