@@ -1,2 +1,7 @@
 streamlit
-PyMuPDF
+pymupdf
+PyPDF2
+pdf2image
+Pillow
+openpyxl
+fpdf
