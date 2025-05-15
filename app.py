@@ -406,24 +406,6 @@ def format_area():
         }
         input:focus, select:focus, textarea:focus {
             border-color: #FCF6F5;
-            box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
-        }
-        .stButton > button {
-            background-color: #1F64FF;
-            color: white;
-            border: 1px solid #1F64FF;
-            border-radius: 6px;
-            padding: 6px 14px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: background-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        .stButton > button:hover {
-            background: linear-gradient(90deg, #0056b3, #00539C);
-            color: white;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
         .stButton > button:active {
             transform: scale(0.98);
