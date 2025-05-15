@@ -264,10 +264,27 @@ def extract_owner_number(file_path):
         st.error(f"명의인 정보 추출 오류: {e}")
         return "등기명의인 정보 오류"
     
+    # ✔ 파일 업로드 되었을 경우 처리
+if uploaded_file:
+    # PDF 저장
+    path = f"./{uploaded_file.name}"
+    with open(path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    # 등기명의인 자동 추출
+    owner_number = extract_owner_number(path)
+    # 주소, 면적, 층수 추출
+    extracted_address, extracted_area, floor_num = extract_address_area_floor(path)
+else:
+    owner_number = "등기명의인 정보 없음"
+    extracted_address, extracted_area, floor_num = "", "", None
+    
 text_to_copy = ""
 
+# 📈 기존 추출 데이터와 함께 메모란 생성
 text_to_copy = f"{owner_number}\n"
 text_to_copy = f"주소: {address_input}\n" + text_to_copy
+
 # 📍 일반가 / 하안가 여부 + KB시세
 type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
 text_to_copy += f"{type_of_price} | KB시세: {raw_price_input}만 | 전용면적: {area_input} | 방공제 금액: {deduction:,}만\n"
