@@ -12,21 +12,20 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
 
     for i in range(num_loans):
         st.write(f"📋 대출 항목 {i + 1}")
-        col1, col2, col3, col4 = st.columns(4)
+
+        # 💡 필수: 4열로 column 배치 (정확 선언)
+        cols = st.columns(4)
 
         # ✅ 설정자 입력
-        lender = col1.text_input(f"설정자 {i+1}", key=f"lender_{i}", placeholder="예: 국민은행")
+        lender = cols[0].text_input(f"설정자 {i+1}", key=f"lender_{i}", placeholder="예: 국민은행")
 
         # ✅ 채권최고액 입력
-        max_amt_str = col2.text_input(f"채권최고액 (만) {i+1}", key=f"max_amt_{i}", placeholder="예: 100,000")
+        max_amt_str = cols[1].text_input(f"채권최고액 (만) {i+1}", key=f"max_amt_{i}", placeholder="예: 100,000")
 
-        # ✅ 설정비율 입력 (고정 초기값 120%)
-        ratio_str = col3.text_input(f"설정비율 (%) {i+1}", key=f"ratio_{i}", value="120")
+        # ✅ 설정비율 입력
+        ratio_str = cols[2].text_input(f"설정비율 (%) {i+1}", key=f"ratio_{i}", value="120")
 
-        # ✅ 진행구분 선택
-        progress = col4.selectbox(f"진행구분 {i+1}", ["대환", "선말소", "유지"], key=f"progress_{i}")
-
-        # 💡 채권최고액, 설정비율 값 변환 (예외 처리 포함)
+        # 💡 값 검증 및 숫자 변환 (예외 처리)
         try:
             max_amt = int(max_amt_str.replace(",", "").strip())
         except:
@@ -37,7 +36,7 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
         except:
             ratio = 120
 
-        # 💀 원금 필드: 세션 상태 관리 (value 대신 state 사용)
+        # ✅ 원금 (Session State만 사용, value= 안 씀)
         principal_key = f"principal_{i}"
         if principal_key not in st.session_state:
             try:
@@ -46,16 +45,18 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
                 principal_amt = 0
             st.session_state[principal_key] = f"{principal_amt:,}"
 
-        # ✅ 원금 입력 (Session State만 사용)
         cols[3].text_input("원금", key=principal_key, placeholder="자동 계산 (필요시 수정 가능)")
 
-        # 💡 설정자와 채권최고액 필수 입력 검증 후 loan_items에 추가
+        # ✅ 진행구분 (selectbox)
+        progress = cols[3].selectbox(f"진행구분 {i+1}", ["대환", "선말소", "유지"], key=f"progress_{i}")
+
+        # 💡 설정자 + 채권최고액이 입력된 경우에만 항목 추가
         if lender.strip() and max_amt > 0:
             loan_items.append(
                 f"{lender} | 채권최고액: {max_amt:,} | 비율: {ratio}% | 원금: {st.session_state[principal_key]} | {progress}"
             )
 
-            # 💡 진행구분별 합계 계산
+            # 💀 진행구분에 따라 합계 계산 (Session state 원금 사용)
             try:
                 clean_principal_amt = int(st.session_state[principal_key].replace(",", "").strip())
             except:
@@ -66,7 +67,7 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
             elif progress == "선말소":
                 sum_sm += clean_principal_amt
 
-    # 💡 LTV 계산 (예외 처리 포함)
+    # ➡ LTV 계산 (방공제 고려)
     if raw_price_input:
         try:
             price = int(raw_price_input.replace(",", ""))
