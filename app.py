@@ -76,30 +76,30 @@ def extract_address_area_floor(file_path):
         st.error(f"PDF 처리 오류: {e}")
         return "", "", None
 
-def extract_owner_number_from_text(text):
-    """
-    📄 PDF 텍스트에서 등기명의인 주민등록번호 추출 함수
-    :param text: PDF 텍스트
-    :return: "이름 주민등록번호" 형식의 문자열 (여러 줄)
-    """
+# PDF에서 소유자 주민번호 추출 함수
+def extract_owner_number_from_summary(text):
     try:
         owners = []
-        # 🔎 1. 등기명의인 구간 블록 찾기 (개선된 패턴)
-        matches = re.findall(r"등기명의인\s*\(주민\)등록번호[^\n]*\n([\s\S]+?)(?:\n\s*\n|$)", text)
-        if matches:
-            owners_block = matches[0]
-            # 🔍 2. 블록 안에서 '이름 (소유자) 주민번호6자리' 찾기
-            owner_matches = re.findall(r"([^\s\(]+)\s*\(소유자\)\s*(\d{6})", owners_block)
-            for name, reg_no in owner_matches:
-                owners.append(f"{name} {reg_no}")
-        return "\n".join(owners)
+
+        # ✅ 주요사항 요약 블록만 추출
+        summary_match = re.search(r"주요 등기사항 요약[\s\S]+?\[ 참 고 사 항 \]", text)
+        if summary_match:
+            summary_text = summary_match.group()
+
+            # ✅ 요약본 내 소유자 + 주민번호 패턴 찾기
+            owner_matches = re.findall(r"등기명의인.*?\n([^\s]+)\s+\(소유자\)\s+(\d{6}-\*{7})", summary_text)
+            if owner_matches:
+                for name, reg_no in owner_matches:
+                    owners.append(f"{name} {reg_no}")
+        
+        return "\n".join(owners) if owners else "❗ 주요사항 요약에서 소유자/주민등록번호를 찾지 못했습니다."
+    
     except Exception as e:
-        # 🛡 안전 로그 및 빈 문자열 리턴
         try:
             import streamlit as st
-            st.error(f"PDF 처리 오류: {e}")
+            st.error(f"PDF 요약 처리 오류: {e}")
         except ImportError:
-            print(f"PDF 처리 오류 (Fallback Log): {e}")
+            print(f"PDF 요약 처리 오류 (Fallback Log): {e}")
         return ""
 
 # 페이지 상태 저장
