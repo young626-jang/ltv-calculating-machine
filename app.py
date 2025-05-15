@@ -264,6 +264,8 @@ sum_dh = sum(
 sum_sm = sum(
     int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
     for item in items if item.get("진행구분") == "선말소"
+)
+
 
 text_to_copy = ""
 
