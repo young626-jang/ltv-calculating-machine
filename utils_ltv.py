@@ -1,4 +1,5 @@
 import streamlit as st
+from utils_format import format_input_with_comma
 
 def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
     loan_items = []
@@ -12,28 +13,33 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
         st.write(f"📋 대출 항목 {i + 1}")
         cols = st.columns(4)
         lender = cols[0].text_input(f"설정자 {i+1}", key=f"lender_{i}", placeholder="예: 국민은행")
-        max_amt_str = cols[1].text_input(f"채권최고액 (만) {i+1}", key=f"max_amt_{i}", placeholder="예: 100,000")
-        ratio_str = cols[2].text_input(f"설정비율 (%) {i+1}", key=f"ratio_{i}", value="120")
+        
+        max_amt_key = f"max_amt_{i}"
+        ratio_key = f"ratio_{i}"
+        principal_key = f"principal_{i}"
+
+        cols[1].text_input(f"채권최고액 (만) {i+1}", key=max_amt_key, on_change=format_input_with_comma, args=(max_amt_key, st), placeholder="예: 100,000")
+        cols[2].text_input(f"설정비율 (%) {i+1}", key=ratio_key, on_change=format_input_with_comma, args=(ratio_key, st), value="120")
 
         try:
-            max_amt = int(max_amt_str.replace(",", "").strip())
+            max_amt = int(st.session_state.get(max_amt_key, "0").replace(",", "").strip())
         except:
             max_amt = 0
 
         try:
-            ratio = int(ratio_str.replace(",", "").strip())
+            ratio = int(st.session_state.get(ratio_key, "120").replace(",", "").strip())
         except:
             ratio = 120
 
-        principal_key = f"principal_{i}"
+        # 원금 자동 계산 (최초 입력 시)
         if principal_key not in st.session_state:
             try:
-                principal_amt = int(max_amt / (ratio / 100))
+                principal_amt = int(max_amt / (ratio / 100)) if ratio else 0
             except:
                 principal_amt = 0
-            st.session_state[principal_key] = f"{principal_amt:,}"
+            st.session_state[principal_key] = "{:,}".format(principal_amt)
 
-        cols[3].text_input("원금", key=principal_key, placeholder="자동 계산 (필요시 수정 가능)")
+        cols[3].text_input("원금", key=principal_key, on_change=format_input_with_comma, args=(principal_key, st), placeholder="자동 계산 (필요시 수정 가능)")
 
         # 진행구분은 별도의 줄에서 깔끔하게
         progress = st.selectbox(f"진행구분 {i+1}", ["대환", "선말소", "유지"], key=f"progress_{i}")
@@ -54,7 +60,7 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
 
     if raw_price_input:
         try:
-            price = int(raw_price_input.replace(",", ""))
+            price = int(raw_price_input.replace(",", "").strip())
             net_price = price - deduction
             ltv = (sum_dh + sum_sm) / net_price * 100 if net_price > 0 else 0
             ltv_results.append(f"LTV: {ltv:.2f}% (대환+선말소)")

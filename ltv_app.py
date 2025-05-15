@@ -6,6 +6,7 @@ from utils_pdfviewer import pdf_viewer_with_navigation
 from utils_deduction import get_deduction_ui
 from utils_ltv import handle_ltv_ui_and_calculation
 from utils_fees import handle_fee_ui_and_calculation
+from utils_format import format_input_with_comma
 
 def inject_custom_css():
     st.markdown("""
@@ -22,7 +23,6 @@ def run_ltv_app():
     st.title("🏠 LTV 계산기 (주소+면적추출)")
     inject_custom_css()
 
-    # ➡ PDF 업로드
     uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
 
     extracted_address = ""
@@ -30,7 +30,6 @@ def run_ltv_app():
     floor_num = None
     owner_number = ""
 
-    # ➡ PDF 분석
     if uploaded_file:
         st.success(f"✅ 업로드 완료: {uploaded_file.name}")
         path = f"./{uploaded_file.name}"
@@ -43,28 +42,20 @@ def run_ltv_app():
             extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
             owner_number = extract_owner_number_from_summary(full_text)
 
-        st.markdown("### 👤 고객명 & 주민번호")
-        st.info(owner_number)
-        pdf_viewer_with_navigation(st, path, total_pages)
-
-    # ➡ 주소, 시세, 방공제 입력 (하나의 Expander 안)
     with st.expander("📂 주소 & 시세 입력", expanded=True):
         address_input = st.text_input("주소", value=extracted_address if uploaded_file else "", key="address_input")
         if st.button("🔎 KB 시세 조회"):
             st.components.v1.html(f"<script>window.open('https://kbland.kr/map?xy=37.5205559,126.9265729,17','_blank')</script>", height=0)
 
         col1, col2 = st.columns(2)
-        raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price")
+        col1.text_input("KB 시세 (만원)", key="raw_price", on_change=format_input_with_comma, args=("raw_price", st))
         area_input = col2.text_input("전용면적 (㎡)", value=extracted_area if uploaded_file else "", key="area_input")
 
-        # ✅ 방공제 입력 위치 수정 (여기)
         deduction = get_deduction_ui(st)
 
-    # ➡ 대출 항목 + LTV 계산
     with st.expander("💳 대출 항목 + LTV 계산", expanded=True):
-        ltv_results, loan_items, sum_dh, sum_sm = handle_ltv_ui_and_calculation(st, raw_price_input, deduction)
+        ltv_results, loan_items, sum_dh, sum_sm = handle_ltv_ui_and_calculation(st, st.session_state.get("raw_price", ""), deduction)
 
-    # ➡ 결과 내용 (값 없으면 자동 생략)
     with st.expander("📋 결과 내용", expanded=True):
         text_to_copy = ""
 
@@ -73,11 +64,11 @@ def run_ltv_app():
         if address_input:
             text_to_copy += f"주소: {address_input}\n"
 
-        if raw_price_input or area_input or deduction > 0:
+        if st.session_state.get("raw_price") or area_input or deduction > 0:
             type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
             text_to_copy += f"{type_of_price} |"
-            if raw_price_input:
-                text_to_copy += f" KB시세: {raw_price_input}만 |"
+            if st.session_state.get("raw_price"):
+                text_to_copy += f" KB시세: {st.session_state.get('raw_price')}만 |"
             if area_input:
                 text_to_copy += f" 전용면적: {area_input} |"
             if deduction > 0:
@@ -88,7 +79,6 @@ def run_ltv_app():
             for res in ltv_results:
                 text_to_copy += res + "\n"
 
-        # ➡ 필터링된 대출 항목만 출력 (설정자 있고, 0이 아닌 경우)
         valid_loan_items = [item for item in loan_items if "|" in item and "0" not in item.split("|")[1].strip()]
         if valid_loan_items:
             text_to_copy += "\n📋 대출 항목\n"
@@ -104,7 +94,6 @@ def run_ltv_app():
 
         st.text_area("", value=text_to_copy.strip(), height=400)
 
-    # ➡ 컨설팅 & 브릿지 수수료 계산 (앱 최하단)
     with st.expander("💰 수수료 계산", expanded=True):
         handle_fee_ui_and_calculation(st)
 
