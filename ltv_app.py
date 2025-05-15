@@ -92,7 +92,7 @@ def run_ltv_app():
             if sum_sm > 0:
                 text_to_copy += f"선말소: {sum_sm:,}만\n"
 
-        st.text_area("", value=text_to_copy.strip(), height=400)
+        st.text_area("", value=text_to_copy.strip(), height=300)
 
     with st.expander("💰 수수료 계산", expanded=True):
         handle_fee_ui_and_calculation(st)
