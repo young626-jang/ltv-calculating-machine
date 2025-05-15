@@ -92,7 +92,7 @@ def extract_owner_number_from_file(file_path):
             return "❗ 주요사항 요약 구간을 찾지 못했습니다."
     except Exception as e:
         return f"❗ PDF 처리 오류: {e}"
-
+    
 # 페이지 상태 저장
 if uploaded_file:
     path = f"./{uploaded_file.name}"
@@ -230,7 +230,6 @@ for i in range(int(rows)):
         args=(max_amt_key,)
     )
 
-    
     ratio = cols[2].text_input("설정비율 (%)", "120", key=f"ratio_{i}")
     try:
         calc = int(re.sub(r"[^\d]", "", st.session_state.get(max_amt_key, "0")) or 0) * 100 // int(ratio or 100)
@@ -272,6 +271,7 @@ sum_sm = sum(
 text_to_copy = ""
 
 owner_number = extract_owner_number_from_file(path)
+address_input, area_val, floor_num = extract_address_area_floor(path)
 
 text_to_copy = f"고객명: {owner_number}\n"
 text_to_copy = f"주소: {address_input}\n" + text_to_copy
