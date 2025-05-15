@@ -266,9 +266,22 @@ sum_sm = sum(
     for item in items if item.get("진행구분") == "선말소"
 )
 
+# ✔ 파일 업로드 UI 및 데이터 처리
+uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
 
-text_to_copy = ""
+owner_number = ""
+extracted_address, extracted_area, floor_num = "", "", None
 
+if uploaded_file:
+    pdf_bytes = uploaded_file.getvalue()
+    doc = fitz.open(stream=pdf_bytes)
+    full_text = "".join(page.get_text() for page in doc)
+
+    # 한 번 읽은 text에서 필요한 것만 추출
+    owner_number = extract_owner_number_from_text(full_text)
+    extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
+
+# 📈 기존 추출 데이터와 함께 메모란 생성
 text_to_copy = f"{owner_number}\n" if owner_number else ""
 text_to_copy = f"주소: {address_input}\n" + text_to_copy
 
