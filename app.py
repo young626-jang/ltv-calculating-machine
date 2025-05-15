@@ -263,36 +263,6 @@ def calculate_principal(max_amt, ratio):
     except:
         return 0
 
-# ➡ 대출 항목 입력
-rows = st.number_input("항목 개수", min_value=1, max_value=10, value=3)
-items = []
-
-for i in range(int(rows)):
-    cols = st.columns(5)
-    lender = cols[0].text_input("설정자", key=f"lender_{i}")
-    max_amt_key = f"maxamt_{i}"
-    max_amt = cols[1].text_input("채권최고액 (만)", key=max_amt_key)
-
-    ratio_key = f"ratio_{i}"
-    ratio = cols[2].text_input("설정비율 (%)", "120", key=ratio_key)
-
-    # 🛡️ 계산된 원금 (별도 계산, 별도 표시, UI와 충돌 X)
-    calc = calculate_principal(st.session_state.get(max_amt_key, "0"), st.session_state.get(ratio_key, "120"))
-
-    # 별도 키 없이 그냥 UI 표시 (on_change 없이 안전)
-    principal_display = f"{calc:,}" if calc else "0"
-    cols[3].text_input("원금 (자동계산)", value=principal_display, disabled=True)
-
-    status = cols[4].selectbox("진행구분", ["유지", "대환", "선말소"], key=f"status_{i}")
-
-    items.append({
-        "설정자": lender,
-        "채권최고액": st.session_state.get(max_amt_key, ""),
-        "설정비율": st.session_state.get(ratio_key, ""),
-        "원금": principal_display,
-        "진행구분": status
-    })
-
 # 계산
 total_value = parse_korean_number(raw_price_input)
 senior_principal_sum = sum(
