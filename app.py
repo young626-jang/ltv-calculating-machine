@@ -77,30 +77,21 @@ def extract_address_area_floor(file_path):
         return "", "", None
 
 # PDF에서 소유자 주민번호 추출 함수
-def extract_owner_number_from_summary(text):
+def extract_owner_number_from_file(file_path):
     try:
-        owners = []
-
-        # ✅ 주요사항 요약 블록만 추출
+        text = "".join(page.get_text() for page in fitz.open(file_path))
         summary_match = re.search(r"주요 등기사항 요약[\s\S]+?\[ 참 고 사 항 \]", text)
         if summary_match:
             summary_text = summary_match.group()
-
-            # ✅ 요약본 내 소유자 + 주민번호 패턴 찾기
             owner_matches = re.findall(r"등기명의인.*?\n([^\s]+)\s+\(소유자\)\s+(\d{6}-\*{7})", summary_text)
             if owner_matches:
-                for name, reg_no in owner_matches:
-                    owners.append(f"{name} {reg_no}")
-        
-        return "\n".join(owners) if owners else "❗ 주요사항 요약에서 소유자/주민등록번호를 찾지 못했습니다."
-    
+                return "\n".join([f"{name} {reg_no}" for name, reg_no in owner_matches])
+            else:
+                return "❗ 요약본에는 등기명의인(소유자)이 없습니다."
+        else:
+            return "❗ 주요사항 요약 구간을 찾지 못했습니다."
     except Exception as e:
-        try:
-            import streamlit as st
-            st.error(f"PDF 요약 처리 오류: {e}")
-        except ImportError:
-            print(f"PDF 요약 처리 오류 (Fallback Log): {e}")
-        return ""
+        return f"❗ PDF 처리 오류: {e}"
 
 # 페이지 상태 저장
 if uploaded_file:
@@ -280,7 +271,7 @@ sum_sm = sum(
 # 결과내용
 text_to_copy = ""
 
-owner_number = extract_owner_number_from_summary(text)
+owner_number = extract_owner_number_from_file(path)
 
 text_to_copy = f"고객명: {owner_number}\n"
 text_to_copy = f"주소: {address_input}\n" + text_to_copy
