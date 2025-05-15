@@ -7,7 +7,7 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
     sum_dh = 0
     sum_sm = 0
 
-    num_loans = st.number_input("대출 항목 수", min_value=1, max_value=5, value=1, step=1)
+    num_loans = st.number_input("대출 항목 수", min_value=1, max_value=5, value=1, step=3)
 
     for i in range(num_loans):
         st.write(f"📋 대출 항목 {i + 1}")
@@ -20,7 +20,7 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
         progress_key = f"progress_{i}"
 
         # 채권최고액 입력
-        cols[0].text_input("설정자", key=lender_key, placeholder="은행명 입력")
+        cols[0].text_input("설정자", key=lender_key, placeholder="")
         cols[1].text_input("채권최고액 (만)", key=max_amt_key, on_change=format_input_with_comma, args=(max_amt_key, st), placeholder="숫자 입력")
 
         # ✅ 설정비율 변경 시 원금 자동 계산 (원금은 수동 입력도 가능)
