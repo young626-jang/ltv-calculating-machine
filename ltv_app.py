@@ -1,118 +1,127 @@
 import streamlit as st
 import fitz  # PyMuPDF
-import re
 
 # 📦 유틸리티 모듈 import
-
 from utils_pdf import extract_address_area_floor_from_text, extract_owner_number_from_summary
 from utils_pdfviewer import pdf_viewer_with_navigation
 from utils_deduction import get_deduction_ui
-from utils_ltv import handle_ltv_ui_and_calculation, parse_korean_number
+from utils_ltv import handle_ltv_ui_and_calculation
 from utils_fees import handle_fee_ui_and_calculation
-from utils_css import inject_custom_css
 
-# ✅ CSS 주입 함수 (최상단에 항상 호출)
+# ✅ 커스텀 CSS 주입 함수 (앱 전체 레이아웃 및 배경 색상 적용)
 def inject_custom_css():
     st.markdown("""
         <style>
         html, body, .stApp {
             background-color: #C7D3D4 !important;
             color: #02343F !important;
-        }
-        input, select, textarea {
-            background-color: #F2EDD7 !important;
-            border: 1px solid #02343F !important;
-            border-radius: 8px;
-            padding: 10px;
-        }
-        .stButton > button {
-            background-color: #02343F !important;
-            color: #F2EDD7 !important;
-            border-radius: 8px !important;
-            padding: 8px 16px !important;
-        }
-        .stButton > button:hover {
-            background-color: #011f2a !important;
+            min-height: 100vh;
         }
         </style>
     """, unsafe_allow_html=True)
 
 def run_ltv_app():
-    st.title("🏠 LTV 계산기 (주소+면적추출)")
+    # ✔ Streamlit 페이지 설정 (가장 첫 줄)
+    st.set_page_config(page_title="LTV 계산기 (최종)", layout="wide")
 
+    # ✔ 앱 타이틀 및 CSS 적용 (타이틀 이후에 바로)
+    st.title("🏠 LTV 계산기 (주소+면적추출)")
+    inject_custom_css()
+
+    # ✔ PDF 업로더 UI
     uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
 
+    # ✔ 분석 데이터 초기화
     extracted_address = ""
     extracted_area = ""
     floor_num = None
     owner_number = ""
 
+    # ✔ 파일 업로드된 경우 처리
     if uploaded_file:
+        st.success(f"✅ 업로드 완료: {uploaded_file.name}")
+
+        # ✔ 파일 저장
         path = f"./{uploaded_file.name}"
         with open(path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
+        # ✔ PDF 열기 및 텍스트 분석
         with fitz.open(path) as doc:
             full_text = "".join(page.get_text() for page in doc)
             total_pages = doc.page_count
             extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
             owner_number = extract_owner_number_from_summary(full_text)
 
+        # ✔ 고객명 + 주민번호 표시
         st.markdown("### 👤 고객명 & 주민번호")
         st.info(owner_number)
 
+        # ✔ PDF 페이지 뷰어 표시
         pdf_viewer_with_navigation(st, path, total_pages)
 
-    with st.expander("📂 주소 & 시세 입력 (접기)", expanded=True):
-        address_input = st.text_input("주소", value=extracted_address, key="address_input")
-
+    # ✔ 주소 & 시세 입력
+    with st.expander("📂 주소 & 시세 입력", expanded=True):
+        address_input = st.text_input("주소", value=extracted_address if uploaded_file else "", key="address_input")
         if st.button("🔎 KB 시세 조회"):
             url = "https://kbland.kr/map?xy=37.5205559,126.9265729,17"
             st.components.v1.html(f"<script>window.open('{url}','_blank')</script>", height=0)
 
-        st.markdown("<div style='margin-top: 10px'></div>", unsafe_allow_html=True)
-
         col1, col2 = st.columns(2)
         raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price")
-        area_input = col2.text_input("전용면적 (㎡)", value=extracted_area, key="area_input")
+        area_input = col2.text_input("전용면적 (㎡)", value=extracted_area if uploaded_file else "", key="area_input")
 
-    # ✅ 방공제 UI 호출 (utils_deduction.py)
+    # ✔ 방공제 입력 UI
     deduction = get_deduction_ui(st)
 
-    # ✅ 대출 항목 + LTV 계산 (utils_ltv.py)
+    # ✔ 대출 항목 + LTV 계산
     with st.expander("💳 대출 항목 + LTV 계산", expanded=True):
         ltv_results, loan_items, sum_dh, sum_sm = handle_ltv_ui_and_calculation(st, raw_price_input, deduction)
 
-    # ✅ 메모 입력
-    with st.expander("📝 메모 입력 (선택)", expanded=True):
-        memo_text = st.text_area("메모 입력", height=150)
-
-    # ✅ 수수료 계산 (utils_fees.py)
+    # ✔ 수수료 계산
     with st.expander("💰 수수료 계산", expanded=True):
         consulting_fee, bridge_fee, total_fee = handle_fee_ui_and_calculation(st)
 
-    # ✅ 결과 내용 자동 생성
-    st.markdown("### 📋 결과 내용")
-    text_to_copy = f"고객명: {owner_number}\n주소: {address_input}\n"
-    type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
-    text_to_copy += f"{type_of_price} | KB시세: {raw_price_input}만 | 전용면적: {area_input} | 방공제 금액: {deduction:,}만\n"
+    # ✔ 결과 내용 자동 생성 (값 없으면 자동 생략)
+    with st.expander("📋 결과 내용 (자동 생성)", expanded=True):
+        text_to_copy = ""
 
-    for res in ltv_results:
-        text_to_copy += res + "\n"
+        if owner_number:
+            text_to_copy += f"고객명: {owner_number}\n"
 
-    if loan_items:
-        text_to_copy += "\n📋 대출 항목\n"
-        for item in loan_items:
-            text_to_copy += f"{item}\n"
+        if address_input:
+            text_to_copy += f"주소: {address_input}\n"
 
-    text_to_copy += "\n[진행구분별 원금 합계]\n"
-    if sum_dh > 0:
-        text_to_copy += f"대환: {sum_dh:,}만\n"
-    if sum_sm > 0:
-        text_to_copy += f"선말소: {sum_sm:,}만\n"
+        if raw_price_input or area_input or deduction > 0:
+            type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
+            text_to_copy += f"{type_of_price} |"
+            if raw_price_input:
+                text_to_copy += f" KB시세: {raw_price_input}만 |"
+            if area_input:
+                text_to_copy += f" 전용면적: {area_input} |"
+            if deduction > 0:
+                text_to_copy += f" 방공제 금액: {deduction:,}만"
+            text_to_copy += "\n"
 
-    st.text_area("📋 결과 내용", value=text_to_copy, height=400)
+        if ltv_results:
+            for res in ltv_results:
+                text_to_copy += res + "\n"
 
-# ✅ 반드시 __main__ 보호 아래 run_ltv_app() 실행
+        if loan_items:
+            text_to_copy += "\n📋 대출 항목\n"
+            for item in loan_items:
+                text_to_copy += f"{item}\n"
+
+        if sum_dh > 0 or sum_sm > 0:
+            text_to_copy += "\n[진행구분별 원금 합계]\n"
+            if sum_dh > 0:
+                text_to_copy += f"대환: {sum_dh:,}만\n"
+            if sum_sm > 0:
+                text_to_copy += f"선말소: {sum_sm:,}만\n"
+
+        # ✔ 최종 결과 출력
+        st.text_area("📋 결과 내용", value=text_to_copy.strip(), height=400)
+
+# ✔ 엔트리 포인트 보호
 if __name__ == "__main__":
     run_ltv_app()
