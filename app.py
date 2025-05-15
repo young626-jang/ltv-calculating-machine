@@ -118,32 +118,46 @@ if uploaded_file:
 else:
     total_pages = 0  # PDF가 업로드되지 않은 경우 기본값 설정
 
-# 현재 페이지의 이미지를 표시
-col1, col2 = st.columns(2)  # 두 열로 나누기
-with col1:
-    if st.session_state["current_page"] < total_pages:
-        img_left = pdf_to_image(path, st.session_state["current_page"])
-        st.image(img_left, caption=f"Page {st.session_state['current_page'] + 1} of {total_pages}")
+# 세션 상태 초기화
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = 0  # 초기 페이지는 첫 번째 페이지
 
-with col2:
-    if st.session_state["current_page"] + 1 < total_pages:
-        img_right = pdf_to_image(path, st.session_state["current_page"] + 1)
-        st.image(img_right, caption=f"Page {st.session_state['current_page'] + 2} of {total_pages}")
+# PDF 파일이 업로드되었는지 확인
+if uploaded_file:
+    path = f"./{uploaded_file.name}"
+    with open(path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
 
-col1, col2, col3 = st.columns(3)
+    with fitz.open(path) as doc:
+        full_text = "".join(page.get_text() for page in doc)
+        total_pages = doc.page_count  # PDF의 총 페이지 수
 
-with col2:
-    col_left, col_right = st.columns(2)
+        # 현재 페이지의 이미지를 표시
+        col1, col2 = st.columns(2)  # 두 열로 나누기
+        with col1:
+            if st.session_state["current_page"] < total_pages:
+                img_left = pdf_to_image(path, st.session_state["current_page"])
+                st.image(img_left, caption=f"Page {st.session_state['current_page'] + 1} of {total_pages}")
 
-    with col_left:
-        if st.button("◀", key="prev_page"):
-            if st.session_state["current_page"] > 0:
-                st.session_state["current_page"] -= 2
+        with col2:
+            if st.session_state["current_page"] + 1 < total_pages:
+                img_right = pdf_to_image(path, st.session_state["current_page"] + 1)
+                st.image(img_right, caption=f"Page {st.session_state['current_page'] + 2} of {total_pages}")
 
-    with col_right:
-        if st.button("▶", key="next_page"):
-            if st.session_state["current_page"] < total_pages - 2:
-                st.session_state["current_page"] += 2
+        # 페이지 이동 버튼
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("◀ 이전 페이지", key="prev_page"):
+                if st.session_state["current_page"] > 0:
+                    st.session_state["current_page"] -= 1
+
+        with col2:
+            if st.button("다음 페이지 ▶", key="next_page"):
+                if st.session_state["current_page"] < total_pages - 1:
+                    st.session_state["current_page"] += 1
+else:
+    st.warning("PDF 파일을 업로드하세요.")
+    total_pages = 0  # PDF가 업로드되지 않은 경우 기본값 설정
 
 # KB 시세 입력값 포맷팅 함수 정의
 def format_kb_price():
