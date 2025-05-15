@@ -11,15 +11,17 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
 
     for i in range(num_loans):
         st.write(f"📋 대출 항목 {i + 1}")
-        cols = st.columns(4)
-        lender = cols[0].text_input(f"설정자 {i+1}", key=f"lender_{i}", placeholder="예: 국민은행")
-        
+        cols = st.columns(5)
+
+        lender_key = f"lender_{i}"
         max_amt_key = f"max_amt_{i}"
         ratio_key = f"ratio_{i}"
         principal_key = f"principal_{i}"
+        progress_key = f"progress_{i}"
 
-        cols[1].text_input(f"채권최고액 (만) {i+1}", key=max_amt_key, on_change=format_input_with_comma, args=(max_amt_key, st), placeholder="예: 100,000")
-        cols[2].text_input(f"설정비율 (%) {i+1}", key=ratio_key, on_change=format_input_with_comma, args=(ratio_key, st), value="120")
+        cols[0].text_input("설정자", key=lender_key, placeholder="은행명 입력")
+        cols[1].text_input("채권최고액 (만)", key=max_amt_key, on_change=format_input_with_comma, args=(max_amt_key, st), placeholder="숫자 입력")
+        cols[2].text_input("설정비율 (%)", key=ratio_key, on_change=format_input_with_comma, args=(ratio_key, st), value="120")
 
         try:
             max_amt = int(st.session_state.get(max_amt_key, "0").replace(",", "").strip())
@@ -31,7 +33,6 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
         except:
             ratio = 120
 
-        # 원금 자동 계산 (최초 입력 시)
         if principal_key not in st.session_state:
             try:
                 principal_amt = int(max_amt / (ratio / 100)) if ratio else 0
@@ -39,10 +40,11 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
                 principal_amt = 0
             st.session_state[principal_key] = "{:,}".format(principal_amt)
 
-        cols[3].text_input("원금", key=principal_key, on_change=format_input_with_comma, args=(principal_key, st), placeholder="자동 계산 (필요시 수정 가능)")
+        cols[3].text_input("원금", key=principal_key, on_change=format_input_with_comma, args=(principal_key, st), placeholder="자동 계산 또는 수정")
+        cols[4].selectbox("진행구분", ["대환", "선말소", "유지"], key=progress_key)
 
-        # 진행구분은 별도의 줄에서 깔끔하게
-        progress = st.selectbox(f"진행구분 {i+1}", ["대환", "선말소", "유지"], key=f"progress_{i}")
+        lender = st.session_state.get(lender_key, "")
+        progress = st.session_state.get(progress_key, "대환")
 
         if lender.strip() and max_amt > 0:
             loan_items.append(
