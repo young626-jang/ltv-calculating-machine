@@ -7,7 +7,7 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
     sum_dh = 0
     sum_sm = 0
 
-    num_loans = st.number_input("대출 항목 수", min_value=1, max_value=5, value=1, step=3)
+    num_loans = st.number_input("대출 항목 수", min_value=1, max_value=5, value=3, step=1)
 
     for i in range(num_loans):
         st.write(f"📋 대출 항목 {i + 1}")
