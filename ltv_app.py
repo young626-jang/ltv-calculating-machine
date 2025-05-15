@@ -21,9 +21,6 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 def run_ltv_app():
-    # ✔ Streamlit 페이지 설정 (가장 첫 줄)
-    st.set_page_config(page_title="LTV 계산기 (최종)", layout="wide")
-
     # ✔ 앱 타이틀 및 CSS 적용 (타이틀 이후에 바로)
     st.title("🏠 LTV 계산기 (주소+면적추출)")
     inject_custom_css()
