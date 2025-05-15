@@ -3,22 +3,23 @@ import fitz
 import re
 from utils_deduction import get_deduction_ui
 from utils_ltv import calculate_ltv, floor_to_unit
-from utils_pdf import extract_address_area_floor_from_text, extract_owner_number_from_summary, pdf_to_image
+from utils_pdf import extract_address_area_floor_from_text, extract_owner_number_from_summary
+from utils_pdfviewer import pdf_viewer_with_navigation
 from utils_fees import calculate_fees, format_with_comma
+from utils_css import inject_custom_css
 from ltv_map import region_map
 
-# Streamlit page config
+# Initialize
 st.set_page_config(page_title="LTV 계산기", layout="wide")
+inject_custom_css(st)
 
 st.title("🏠 LTV 계산기 (주소+면적추출)")
 
-# Session state 초기화
+# 세션 초기화
 if "raw_price" not in st.session_state:
     st.session_state["raw_price"] = "0"
-if "current_page" not in st.session_state:
-    st.session_state["current_page"] = 0
 
-# 숫자 한글 처리 함수
+# 시세 입력 포맷팅
 def parse_korean_number(text: str) -> int:
     txt = text.replace(",", "").strip()
     total = 0
@@ -38,7 +39,6 @@ def parse_korean_number(text: str) -> int:
             total = 0
     return total
 
-# 시세 입력 포맷팅
 def format_kb_price():
     raw = st.session_state.get("raw_price", "")
     clean = parse_korean_number(raw)
@@ -47,14 +47,13 @@ def format_kb_price():
     else:
         st.session_state["raw_price"] = ""
 
-# 면적 입력 포맷팅
 def format_area():
     raw = st.session_state.get("area_input", "")
     clean = re.sub(r"[^\d.]", "", raw)
     if clean and not raw.endswith("㎡"):
         st.session_state["area_input"] = f"{clean}㎡"
 
-# PDF 업로드
+# PDF Upload
 uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
 
 if uploaded_file:
@@ -69,45 +68,26 @@ if uploaded_file:
         extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
         owner_number = extract_owner_number_from_summary(full_text)
 
-        # 주소 및 면적 입력
+        # 주소 및 시세 입력
         address_input = st.text_input("주소", extracted_address, key="address_input")
         col1, col2 = st.columns(2)
         raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price", on_change=format_kb_price)
         area_input = col2.text_input("전용면적 (㎡)", extracted_area, key="area_input", on_change=format_area)
 
-        # 하안가/일반가 표시
         if floor_num is not None:
             st.markdown(f"<span style='color:red' if {floor_num}<=2 else 'color:#007BFF'; font-weight:bold; font-size:18px'>{'📉 하안가' if floor_num<=2 else '📈 일반가'}</span>", unsafe_allow_html=True)
 
-        # PDF 이미지 미리보기
-        col1, col2 = st.columns(2)
-        if st.session_state["current_page"] < total_pages:
-            img_left = pdf_to_image(path, st.session_state["current_page"])
-            col1.image(img_left, caption=f"Page {st.session_state['current_page']+1} of {total_pages}")
-        if st.session_state["current_page"] + 1 < total_pages:
-            img_right = pdf_to_image(path, st.session_state["current_page"] + 1)
-            col2.image(img_right, caption=f"Page {st.session_state['current_page']+2} of {total_pages}")
-
-        if st.button("◀ 이전 페이지") and st.session_state["current_page"] > 0:
-            st.session_state["current_page"] -= 1
-        if st.button("다음 페이지 ▶") and st.session_state["current_page"] < total_pages - 1:
-            st.session_state["current_page"] += 1
+        # PDF Viewer 호출 (모듈)
+        pdf_viewer_with_navigation(st, path, total_pages)
 
         # 방공제 UI (모듈)
         deduction = get_deduction_ui(st)
 
-        # LTV 입력
+        # LTV 비율 입력
         col1, col2 = st.columns(2)
         raw_ltv1 = col1.text_input("LTV 비율 ①", "80")
         raw_ltv2 = col2.text_input("LTV 비율 ②", "")
-        ltv_selected = []
-        for val in [raw_ltv1, raw_ltv2]:
-            try:
-                v = int(val)
-                if 1 <= v <= 100:
-                    ltv_selected.append(v)
-            except:
-                pass
+        ltv_selected = [int(val) for val in [raw_ltv1, raw_ltv2] if val.isdigit() and 1 <= int(val) <= 100]
 
         # 대출 항목 입력
         st.markdown("### 📝 대출 항목 입력")
@@ -131,7 +111,7 @@ if uploaded_file:
                 "진행구분": status
             })
 
-        # LTV 계산 및 결과 표시
+        # LTV 계산
         total_value = parse_korean_number(raw_price_input)
         senior_principal_sum = sum(
             int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
@@ -143,20 +123,16 @@ if uploaded_file:
         for ltv in ltv_selected:
             if has_senior and not has_maintain:
                 limit_senior, avail_senior = calculate_ltv(total_value, deduction, senior_principal_sum, 0, ltv, is_senior=True)
-                limit_senior = floor_to_unit(limit_senior)
-                avail_senior = floor_to_unit(avail_senior)
-                st.markdown(f"✅ 선순위 LTV {ltv}%: 대출가능 {limit_senior:,} | 가용 {avail_senior:,}")
+                st.markdown(f"✅ 선순위 LTV {ltv}%: 대출가능 {floor_to_unit(limit_senior):,} | 가용 {floor_to_unit(avail_senior):,}")
             if has_maintain:
                 maintain_maxamt_sum = sum(
                     int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
                     for item in items if item["진행구분"] == "유지"
                 )
                 limit_sub, avail_sub = calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=False)
-                limit_sub = floor_to_unit(limit_sub)
-                avail_sub = floor_to_unit(avail_sub)
-                st.markdown(f"✅ 후순위 LTV {ltv}%: 대출가능 {limit_sub:,} | 가용 {avail_sub:,}")
+                st.markdown(f"✅ 후순위 LTV {ltv}%: 대출가능 {floor_to_unit(limit_sub):,} | 가용 {floor_to_unit(avail_sub):,}")
 
-        # 수수료 계산 (모듈)
+        # 수수료 계산
         st.markdown("### 💰 수수료 계산")
         col1, col2 = st.columns(2)
         col1.text_input("총 대출금액 (만)", key="total_loan", on_change=format_with_comma, args=(st, "total_loan"))
@@ -165,10 +141,9 @@ if uploaded_file:
         bridge_rate = st.number_input("브릿지 수수료율 (%)", value=0.7, step=0.1)
         consulting_fee = calculate_fees(st.session_state.get("total_loan", ""), consulting_rate)
         bridge_fee = calculate_fees(st.session_state.get("bridge_amount", ""), bridge_rate)
-        total_fee = consulting_fee + bridge_fee
         st.markdown(f"**컨설팅 비용:** {int(consulting_fee):,}만")
         st.markdown(f"**브릿지 비용:** {int(bridge_fee):,}만")
-        st.markdown(f"🔗 **총 비용:** {int(total_fee):,}만")
+        st.markdown(f"🔗 **총 비용:** {int(consulting_fee + bridge_fee):,}만")
 
 else:
     st.warning("PDF 파일을 업로드하세요.")
