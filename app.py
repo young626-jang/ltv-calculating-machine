@@ -41,9 +41,25 @@ def pdf_to_image(file_path, page_num):
     return img
 
 #  PDF에서 주소 및 면적 추출 함수
-def extract_address_area_floor(file_path):
+# ✔ 등기명의인 추출 함수 (텍스트 기반)
+def extract_owner_number_from_summary(text):
     try:
-        text = "".join(page.get_text() for page in fitz.open(file_path))
+        owners = []
+        summary_match = re.search(r"주요 등기사항 요약[\s\S]+?\[ 참 고 사 항 \]", text)
+        if summary_match:
+            summary_text = summary_match.group()
+            owner_matches = re.findall(r"등기명의인.*?\n([^\s]+)\s+\(소유자\)\s+(\d{6}-\*{7})", summary_text)
+            if owner_matches:
+                for name, reg_no in owner_matches:
+                    owners.append(f"{name} {reg_no}")
+        return "\n".join(owners) if owners else "❗ 주요사항 요약에서 소유자/주민등록번호를 찾지 못했습니다."
+    except Exception as e:
+        st.error(f"PDF 요약 처리 오류: {e}")
+        return ""
+
+# ✔ 주소 및 면적 추출 함수 (텍스트 기반)
+def extract_address_area_floor_from_text(text):
+    try:
         address = re.search(r"\[집합건물\]\s*([^\n]+)", text).group(1).strip() if re.search(r"\[집합건물\]\s*([^\n]+)", text) else ""
         area_match = re.findall(r"(\d+\.\d+)\s*㎡", text)
         area_val = f"{area_match[-1]}㎡" if area_match else ""
@@ -54,41 +70,46 @@ def extract_address_area_floor(file_path):
         st.error(f"PDF 처리 오류: {e}")
         return "", "", None
 
-# ✔ 등기명의인 추출 함수 (요약 구간만 정확히 타겟)
-def extract_owner_number_from_summary(text):
-    try:
-        owners = []
-        # 주요사항 요약 구간 찾기
-        summary_match = re.search(r"주요 등기사항 요약[\s\S]+?\[ 참 고 사 항 \]", text)
-        if summary_match:
-            summary_text = summary_match.group()
-            # 등기명의인 이름 + 주민번호 찾기
-            owner_matches = re.findall(r"등기명의인.*?\n([^\s]+)\s+\(소유자\)\s+(\d{6}-\*{7})", summary_text)
-            if owner_matches:
-                for name, reg_no in owner_matches:
-                    owners.append(f"{name} {reg_no}")
-        return "\n".join(owners) if owners else "❗ 주요사항 요약에서 소유자/주민등록번호를 찾지 못했습니다."
-    except Exception as e:
-        st.error(f"PDF 요약 처리 오류: {e}")
-        return ""
-    
-# 페이지 상태 저장
+# ✔ 페이지 상태 저장
 if uploaded_file:
     path = f"./{uploaded_file.name}"
     with open(path, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-    # ✔ 여기서 단 한번만 열고 텍스트 읽기
     with fitz.open(path) as doc:
         full_text = "".join(page.get_text() for page in doc)
-        total_pages = doc.page_count  # 페이지 수도 이 때 같이 가져오기
+        total_pages = doc.page_count
 
-    # ✔ 파일 다운로드 버튼 (path만 쓰면 됨)
+    # ✅ 주민번호와 주소 추출 (텍스트 기반)
+    owner_number = extract_owner_number_from_summary(full_text)
+    address_input, area_val, floor_num = extract_address_area_floor_from_text(full_text)
+
+    # ✅ 결과내용
+    text_to_copy = f"고객명: {owner_number}\n주소: {address_input}\n"
+
+    # ✅ 일반가 / 하안가 여부
+    type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
+    text_to_copy += f"{type_of_price} | KB시세: {raw_price_input}만 | 전용면적: {area_input} | 방공제 금액: {deduction:,}만\n"
+
+    # ✅ 선/후순위 LTV 계산 (예시)
+    text_to_copy += f"\n✅ 선순위 LTV {ltv}% ☞ 대출가능금액 {limit_senior:,} 가용 {avail_senior:,}"
+    text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}"
+
+    # 📍 진행구분별 원금 합계
+    text_to_copy += "\n[진행구분별 원금 합계]\n"
+    if sum_dh > 0:
+        text_to_copy += f"대환: {sum_dh:,}만\n"
+    if sum_sm > 0:
+        text_to_copy += f"선말소: {sum_sm:,}만\n"
+
+    # ✅ 파일 다운로드 버튼
     with open(path, "rb") as f:
         st.download_button("업로드한 등기부등본 다운로드", f, uploaded_file.name, mime="application/pdf")
 
+    # ✅ 최종 결과 표시
+    st.text_area("📋 결과 내용", value=text_to_copy, height=300)
 else:
-    address_input, area_val, floor_num = "", "", None        
+    st.warning("PDF를 먼저 업로드하세요.")
 
     # Streamlit의 세션 상태를 사용하여 현재 페이지를 추적
     if "current_page" not in st.session_state:
@@ -100,7 +121,7 @@ else:
         if st.session_state["current_page"] < total_pages:
             img_left = pdf_to_image(path, st.session_state["current_page"])
             st.image(img_left, caption=f"Page {st.session_state['current_page'] + 1} of {total_pages}")
-
+            
     with col2:
         if st.session_state["current_page"] + 1 < total_pages:
             img_right = pdf_to_image(path, st.session_state["current_page"] + 1) 
@@ -241,19 +262,8 @@ sum_dh = sum(
 sum_sm = sum(
     int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
     for item in items if item.get("진행구분") == "선말소"
+
 )
-
-    # ✅ 주민번호와 주소 추출 (텍스트 기반)
-    owner_number = extract_owner_number_from_summary(full_text)
-    address_input, area_val, floor_num = extract_address_area_floor_from_text(full_text)
-
-    # ✅ 결과내용
-    text_to_copy = f"고객명: {owner_number}\n주소: {address_input}\n"
-
-# 📍 일반가 / 하안가 여부 + KB시세
-type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
-text_to_copy += f"{type_of_price} | KB시세: {raw_price_input}만 | 전용면적: {area_input} | 방공제 금액: {deduction:,}만\n"
-
 # 대출 항목 조건 필터
 valid_items = []
 for item in items:
@@ -310,8 +320,6 @@ for ltv in ltv_selected:
         limit_senior = floor_to_unit(limit_senior)
         avail_senior = floor_to_unit(avail_senior)
 
-        text_to_copy += f"\n✅ 선순위 LTV {ltv}% ☞ 대출가능금액 {limit_senior:,} 가용 {avail_senior:,}"
-
     # ✅ 후순위는 "유지"가 있을 때만 계산
     if has_maintain:
         maintain_maxamt_sum = sum(
@@ -325,17 +333,6 @@ for ltv in ltv_selected:
         # ⬇️ 여기서도 100단위로 버림
         limit_sub = floor_to_unit(limit_sub)
         avail_sub = floor_to_unit(avail_sub)
-
-        text_to_copy += f"\n✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,} 가용 {avail_sub:,}"
-
-# 📍 진행구분별 원금 합계
-text_to_copy += "\n[진행구분별 원금 합계]\n"
-if sum_dh > 0:
-    text_to_copy += f"대환: {sum_dh:,}만\n"
-if sum_sm > 0:
-    text_to_copy += f"선말소: {sum_sm:,}만\n"
-
-st.text_area("📋 결과 내용", value=text_to_copy, height=300)
 
 # Streamlit UI
 st.markdown("### 💰 컨설팅 및 브릿지 수수료 계산")
