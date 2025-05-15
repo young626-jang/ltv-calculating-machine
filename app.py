@@ -10,6 +10,30 @@ from ltv_map import region_map  # ltv_map.py에서 region_map 가져오기
 # 여기서부터 본문 시작
 st.title("🏠 LTV 계산기 (주소+면적추출)")
 
+# 세션 초기값 선언
+if "raw_price" not in st.session_state:
+    st.session_state["raw_price"] = "0"
+
+with st.expander("접기", expanded=True):
+    address_input = st.text_input("주소", extracted_address, key="address_input")
+
+    col1, col2 = st.columns(2)
+    raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price", on_change=format_kb_price, args=())
+    area_input = col2.text_input("전용면적 (㎡)", extracted_area, key="area_input", on_change=format_area, args=())
+
+    floor_match = re.findall(r"제(\d+)층", address_input)
+    floor_num = int(floor_match[-1]) if floor_match else None
+
+    if floor_num is not None:
+        if floor_num <= 2:
+            st.markdown('<span style="color:red; font-weight:bold; font-size:18px">📉 하안가</span>', unsafe_allow_html=True)
+        else:
+            st.markdown('<span style="color:#007BFF; font-weight:bold; font-size:18px">📈 일반가</span>', unsafe_allow_html=True)
+
+    if st.button("KB 시세 조회"):
+        url = "https://kbland.kr/map?xy=37.5205559,126.9265729,17"
+        st.components.v1.html(f"<script>window.open('{url}','_blank')</script>", height=0)
+
 def parse_korean_number(text: str) -> int:
     txt = text.replace(",", "").strip()
     total = 0
@@ -70,9 +94,7 @@ def extract_address_area_floor_from_text(text):
     except Exception as e:
         st.error(f"PDF 처리 오류: {e}")
         return "", "", None
-
-extracted_address, extracted_area, floor_num = "", "", None  # 먼저 선언
-
+    
 # ✔ 페이지 상태 저장
 if uploaded_file:
     path = f"./{uploaded_file.name}"
@@ -116,12 +138,6 @@ if uploaded_file:
 
         # ✅ 최종 결과 표시
         st.text_area("📋 결과 내용", value=text_to_copy, height=300)
-else:
-    total_pages = 0  # PDF가 업로드되지 않은 경우 기본값 설정
-
-# 세션 상태 초기화
-if "current_page" not in st.session_state:
-    st.session_state["current_page"] = 0  # 초기 페이지는 첫 번째 페이지
 
 # PDF 파일이 업로드되었는지 확인
 if uploaded_file:
@@ -176,29 +192,6 @@ def format_area():
     if clean and not raw.endswith("㎡"):
         st.session_state["area_input"] = f"{clean}㎡"
 
-# 세션 초기값 선언
-if "raw_price" not in st.session_state:
-    st.session_state["raw_price"] = "0"
-
-with st.expander("접기", expanded=True):
-    address_input = st.text_input("주소", extracted_address, key="address_input")
-
-    col1, col2 = st.columns(2)
-    raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price", on_change=format_kb_price, args=())
-    area_input = col2.text_input("전용면적 (㎡)", extracted_area, key="area_input", on_change=format_area, args=())
-
-    floor_match = re.findall(r"제(\d+)층", address_input)
-    floor_num = int(floor_match[-1]) if floor_match else None
-
-    if floor_num is not None:
-        if floor_num <= 2:
-            st.markdown('<span style="color:red; font-weight:bold; font-size:18px">📉 하안가</span>', unsafe_allow_html=True)
-        else:
-            st.markdown('<span style="color:#007BFF; font-weight:bold; font-size:18px">📈 일반가</span>', unsafe_allow_html=True)
-
-    if st.button("KB 시세 조회"):
-        url = "https://kbland.kr/map?xy=37.5205559,126.9265729,17"
-        st.components.v1.html(f"<script>window.open('{url}','_blank')</script>", height=0)
 
     # 방공제 지역 & 방공제 금액 같은 줄에 붙이기
     col1, col2 = st.columns(2)
