@@ -12,6 +12,20 @@ inject_custom_css(st)
 
 st.title("🏠 LTV 계산기 (주소+면적추출)")
 
+# ✅ PDF 업로드 시 Viewer만 표시
+uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
+if uploaded_file:
+    path = f"./{uploaded_file.name}"
+    with open(path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    with fitz.open(path) as doc:
+        full_text = "".join(page.get_text() for page in doc)
+        total_pages = doc.page_count
+
+        # PDF Viewer 호출
+        pdf_viewer_with_navigation(st, path, total_pages)
+
 # 📂 주소 & 시세 입력 (항상 표시)
 with st.expander("📂 주소 & 시세 입력 (접기)", expanded=True):
     address_input = st.text_input("주소", key="address_input")
@@ -30,17 +44,3 @@ handle_ltv_ui_and_calculation(st, raw_price_input, deduction)
 
 # ✅ 수수료 계산
 handle_fee_ui_and_calculation(st)
-
-# ✅ PDF 업로드 시 Viewer만 표시
-uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
-if uploaded_file:
-    path = f"./{uploaded_file.name}"
-    with open(path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-
-    with fitz.open(path) as doc:
-        full_text = "".join(page.get_text() for page in doc)
-        total_pages = doc.page_count
-
-        # PDF Viewer 호출
-        pdf_viewer_with_navigation(st, path, total_pages)
