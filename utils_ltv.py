@@ -1,33 +1,41 @@
 import re
 import streamlit as st
 
+def parse_korean_number(text: str) -> int:
+    """
+    🔢 한글 숫자 문자열 파싱 함수
+    - '3억 500만' ➡ 30500
+    - '1억 2천만' ➡ 12000
+    - '2500만' ➡ 2500
+    - '1,000' ➡ 1000
+    """
+    txt = text.replace(",", "").strip()
+    total = 0
+    m = re.search(r"(\d+)\s*억", txt)
+    if m:
+        total += int(m.group(1)) * 10000
+    m = re.search(r"(\d+)\s*천만", txt)
+    if m:
+        total += int(m.group(1)) * 1000
+    m = re.search(r"(\d+)\s*만", txt)
+    if m:
+        total += int(m.group(1))
+    if total == 0:
+        try:
+            total = int(txt)
+        except:
+            total = 0
+    return total
+
 def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
     """
-    📋 대출 항목 입력 + LTV 계산 UI + 결과 표시 (Streamlit UI)
-    - 입력된 KB 시세, 방공제 금액 기준으로
-    - 대출 항목 입력 → 선순위/후순위 LTV 계산
+    💰 대출 항목 입력 + LTV 계산 UI 및 결과 반환 (Streamlit UI)
+    - 대출 항목 입력
+    - LTV 비율 입력
+    - 선/후순위 계산 결과 반환
+    - 대출 항목 리스트 반환
     """
-    # 입력값 파싱 함수 (한글 숫자 포함)
-    def parse_korean_number(text: str) -> int:
-        txt = text.replace(",", "").strip()
-        total = 0
-        m = re.search(r"(\d+)\s*억", txt)
-        if m:
-            total += int(m.group(1)) * 10000
-        m = re.search(r"(\d+)\s*천만", txt)
-        if m:
-            total += int(m.group(1)) * 1000
-        m = re.search(r"(\d+)\s*만", txt)
-        if m:
-            total += int(m.group(1))
-        if total == 0:
-            try:
-                total = int(txt)
-            except:
-                total = 0
-        return total
-
-    # 🔢 숫자 입력 포맷팅 (쉼표 추가)
+    # ➡️ 숫자 쉼표 포맷팅 함수
     def format_with_comma(key):
         raw = st.session_state.get(key, "")
         clean = re.sub(r"[^\d]", "", raw)
@@ -36,7 +44,7 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
         else:
             st.session_state[key] = ""
 
-    # 💰 LTV 계산 함수
+    # ➡️ LTV 계산 함수 (선순위/후순위)
     def calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=True):
         if is_senior:
             limit = int(total_value * (ltv / 100) - deduction)
@@ -48,7 +56,6 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
         available = (available // 10) * 10
         return limit, available
 
-    # UI 시작
     st.markdown("### 📝 대출 항목 입력")
 
     # LTV 비율 입력 UI
@@ -89,24 +96,48 @@ def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
             "진행구분": status
         })
 
-    # 입력값 계산
+    # 총 KB시세 파싱
     total_value = parse_korean_number(raw_price_input)
+
+    # 선순위 원금 합계
     senior_principal_sum = sum(
         int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
         for item in items if item.get("진행구분") in ["대환", "선말소"]
     )
 
+    # 진행 상태 체크
     has_maintain = any(item["진행구분"] == "유지" for item in items)
     has_senior = any(item["진행구분"] in ["대환", "선말소"] for item in items)
+
+    # 💡 결과 저장용
+    ltv_results = []
+    loan_items = []
+    sum_dh = sum(
+        int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
+        for item in items if item.get("진행구분") == "대환"
+    )
+    sum_sm = sum(
+        int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
+        for item in items if item.get("진행구분") == "선말소"
+    )
 
     for ltv in ltv_selected:
         if has_senior and not has_maintain:
             limit_senior, avail_senior = calculate_ltv(total_value, deduction, senior_principal_sum, 0, ltv, is_senior=True)
-            st.markdown(f"✅ 선순위 LTV {ltv}%: 대출가능 {limit_senior:,}만 | 가용 {avail_senior:,}만")
+            ltv_results.append(f"✅ 선순위 LTV {ltv}% ☞ 대출가능금액 {limit_senior:,}만 | 가용 {avail_senior:,}만")
         if has_maintain:
             maintain_maxamt_sum = sum(
                 int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
                 for item in items if item["진행구분"] == "유지"
             )
             limit_sub, avail_sub = calculate_ltv(total_value, deduction, senior_principal_sum, maintain_maxamt_sum, ltv, is_senior=False)
-            st.markdown(f"✅ 후순위 LTV {ltv}%: 대출가능 {limit_sub:,}만 | 가용 {avail_sub:,}만")
+            ltv_results.append(f"✅ 후순위 LTV {ltv}% ☞ 대출가능금액 {limit_sub:,}만 | 가용 {avail_sub:,}만")
+
+    # 대출 항목 요약 리스트
+    for item in items:
+        max_amt = int(re.sub(r"[^\d]", "", item.get("채권최고액", "") or "0"))
+        principal_amt = int(re.sub(r"[^\d]", "", item.get("원금", "") or "0"))
+        loan_items.append(f"{item['설정자']} | 채권최고액: {max_amt:,} | 비율: {item.get('설정비율', '0')}% | 원금: {principal_amt:,} | {item['진행구분']}")
+
+    # 결과 반환
+    return ltv_results, loan_items, sum_dh, sum_sm
