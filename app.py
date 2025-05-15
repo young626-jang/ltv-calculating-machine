@@ -129,20 +129,30 @@ def extract_address_area_floor(file_path):
         st.error(f"PDF 처리 오류: {e}")
         return "", "", None
 
-#  PDF에서 등기명의인 주민등록번호 자동 추출하는 함수
 def extract_owner_number_from_text(text):
+    """
+    📄 PDF 텍스트에서 등기명의인 주민등록번호 추출 함수
+    :param text: PDF 텍스트
+    :return: "이름 주민등록번호" 형식의 문자열 (여러 줄)
+    """
     try:
         owners = []
+        # 🔎 1. 등기명의인 구간 블록 찾기 (개선된 패턴)
         matches = re.findall(r"등기명의인\s*\(주민\)등록번호[^\n]*\n([\s\S]+?)(?:\n\s*\n|$)", text)
         if matches:
             owners_block = matches[0]
+            # 🔍 2. 블록 안에서 '이름 (소유자) 주민번호6자리' 찾기
             owner_matches = re.findall(r"([^\s\(]+)\s*\(소유자\)\s*(\d{6})", owners_block)
-            for match in owner_matches:
-                name, reg_no = match
+            for name, reg_no in owner_matches:
                 owners.append(f"{name} {reg_no}")
-        return "\n".join(owners) if owners else ""
+        return "\n".join(owners)
     except Exception as e:
-        st.error(f"PDF 처리 오류: {e}")
+        # 🛡 안전 로그 및 빈 문자열 리턴
+        try:
+            import streamlit as st
+            st.error(f"PDF 처리 오류: {e}")
+        except ImportError:
+            print(f"PDF 처리 오류 (Fallback Log): {e}")
         return ""
 
 # KB 시세 입력값 포맷팅 함수 정의
@@ -269,8 +279,8 @@ sum_sm = sum(
 # 📈 기존 추출 데이터와 함께 메모란 생성
 text_to_copy = ""
 
-text_to_copy += f"{owner_number}\n"
-text_to_copy = f"주소: {address_input}\n" + text_to_copy
+text_to_copy = f"{owner_number}\n" if owner_number else ""
+text_to_copy = f"주소: {address_input}\n{text_to_copy}"
 
 # 📍 일반가 / 하안가 여부 + KB시세
 type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
