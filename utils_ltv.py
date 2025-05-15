@@ -1,109 +1,64 @@
 import streamlit as st
-import fitz
 
-from utils_pdf import extract_address_area_floor_from_text, extract_owner_number_from_summary
-from utils_pdfviewer import pdf_viewer_with_navigation
-from utils_deduction import get_deduction_ui
-from utils_ltv import handle_ltv_ui_and_calculation
-from utils_fees import handle_fee_ui_and_calculation
+def handle_ltv_ui_and_calculation(st, raw_price_input, deduction):
+    loan_items = []
+    ltv_results = []
+    sum_dh = 0
+    sum_sm = 0
 
-def inject_custom_css():
-    st.markdown("""
-        <style>
-        html, body, .stApp {
-            background-color: #C7D3D4 !important;
-            color: #02343F !important;
-            min-height: 100vh;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    num_loans = st.number_input("대출 항목 수", min_value=1, max_value=5, value=1, step=1)
 
-def run_ltv_app():
-    st.title("🏠 LTV 계산기 (주소+면적추출)")
-    inject_custom_css()
+    for i in range(num_loans):
+        st.write(f"📋 대출 항목 {i + 1}")
+        cols = st.columns(4)
+        lender = cols[0].text_input(f"설정자 {i+1}", key=f"lender_{i}", placeholder="예: 국민은행")
+        max_amt_str = cols[1].text_input(f"채권최고액 (만) {i+1}", key=f"max_amt_{i}", placeholder="예: 100,000")
+        ratio_str = cols[2].text_input(f"설정비율 (%) {i+1}", key=f"ratio_{i}", value="120")
 
-    uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
+        try:
+            max_amt = int(max_amt_str.replace(",", "").strip())
+        except:
+            max_amt = 0
 
-    extracted_address = ""
-    extracted_area = ""
-    floor_num = None
-    owner_number = ""
+        try:
+            ratio = int(ratio_str.replace(",", "").strip())
+        except:
+            ratio = 120
 
-    if uploaded_file:
-        st.success(f"✅ 업로드 완료: {uploaded_file.name}")
-        path = f"./{uploaded_file.name}"
-        with open(path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+        principal_key = f"principal_{i}"
+        if principal_key not in st.session_state:
+            try:
+                principal_amt = int(max_amt / (ratio / 100))
+            except:
+                principal_amt = 0
+            st.session_state[principal_key] = f"{principal_amt:,}"
 
-        with fitz.open(path) as doc:
-            full_text = "".join(page.get_text() for page in doc)
-            total_pages = doc.page_count
-            extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
-            owner_number = extract_owner_number_from_summary(full_text)
+        cols[3].text_input("원금", key=principal_key, placeholder="자동 계산 (필요시 수정 가능)")
 
-        st.markdown("### 👤 고객명 & 주민번호")
-        st.info(owner_number)
-        pdf_viewer_with_navigation(st, path, total_pages)
+        # 진행구분은 별도의 줄에서 깔끔하게
+        progress = st.selectbox(f"진행구분 {i+1}", ["대환", "선말소", "유지"], key=f"progress_{i}")
 
-    # ➡ 주소 + 시세 + 방공제 입력 (하나의 Expander 안)
-    with st.expander("📂 주소 & 시세 입력", expanded=True):
-        address_input = st.text_input("주소", value=extracted_address if uploaded_file else "", key="address_input")
-        if st.button("🔎 KB 시세 조회"):
-            st.components.v1.html(f"<script>window.open('https://kbland.kr/map?xy=37.5205559,126.9265729,17','_blank')</script>", height=0)
+        if lender.strip() and max_amt > 0:
+            loan_items.append(
+                f"{lender} | 채권최고액: {max_amt:,} | 비율: {ratio}% | 원금: {st.session_state[principal_key]} | {progress}"
+            )
+            try:
+                clean_principal_amt = int(st.session_state[principal_key].replace(",", "").strip())
+            except:
+                clean_principal_amt = 0
 
-        col1, col2 = st.columns(2)
-        raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price")
-        area_input = col2.text_input("전용면적 (㎡)", value=extracted_area if uploaded_file else "", key="area_input")
+            if progress == "대환":
+                sum_dh += clean_principal_amt
+            elif progress == "선말소":
+                sum_sm += clean_principal_amt
 
-        # 💡 방공제 입력 (안쪽으로 이동)
-        deduction = get_deduction_ui(st)
+    if raw_price_input:
+        try:
+            price = int(raw_price_input.replace(",", ""))
+            net_price = price - deduction
+            ltv = (sum_dh + sum_sm) / net_price * 100 if net_price > 0 else 0
+            ltv_results.append(f"LTV: {ltv:.2f}% (대환+선말소)")
+        except:
+            ltv_results.append("LTV 계산 불가")
 
-    # ➡ 대출 항목 + LTV 계산
-    with st.expander("💳 대출 항목 + LTV 계산", expanded=True):
-        ltv_results, loan_items, sum_dh, sum_sm = handle_ltv_ui_and_calculation(st, raw_price_input, deduction)
-
-    # ➡ 결과 내용 (값 없으면 자동 생략)
-    with st.expander("📋 결과 내용", expanded=True):
-        text_to_copy = ""
-
-        if owner_number:
-            text_to_copy += f"고객명: {owner_number}\n"
-        if address_input:
-            text_to_copy += f"주소: {address_input}\n"
-
-        if raw_price_input or area_input or deduction > 0:
-            type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
-            text_to_copy += f"{type_of_price} |"
-            if raw_price_input:
-                text_to_copy += f" KB시세: {raw_price_input}만 |"
-            if area_input:
-                text_to_copy += f" 전용면적: {area_input} |"
-            if deduction > 0:
-                text_to_copy += f" 방공제 금액: {deduction:,}만"
-            text_to_copy += "\n"
-
-        if ltv_results:
-            for res in ltv_results:
-                text_to_copy += res + "\n"
-
-        valid_loan_items = [item for item in loan_items if "|" in item and "0" not in item.split("|")[1].strip()]
-        if valid_loan_items:
-            text_to_copy += "\n📋 대출 항목\n"
-            for item in valid_loan_items:
-                text_to_copy += f"{item}\n"
-
-        if sum_dh > 0 or sum_sm > 0:
-            text_to_copy += "\n[진행구분별 원금 합계]\n"
-            if sum_dh > 0:
-                text_to_copy += f"대환: {sum_dh:,}만\n"
-            if sum_sm > 0:
-                text_to_copy += f"선말소: {sum_sm:,}만\n"
-
-        st.text_area("", value=text_to_copy.strip(), height=400)
-
-    # ➡ 수수료 계산 (앱 최하단)
-    with st.expander("💰 수수료 계산", expanded=True):
-        handle_fee_ui_and_calculation(st)
-
-if __name__ == "__main__":
-    run_ltv_app()
+    return ltv_results, loan_items, sum_dh, sum_sm
