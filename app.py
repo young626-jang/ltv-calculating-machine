@@ -62,6 +62,45 @@ def pdf_to_image(file_path, page_num):
     img = pix.tobytes("png")  # PNG 형식으로 이미지 바이트로 변환
     return img
 
+#  PDF에서 주소 및 면적 추출 함수
+def extract_address_area_floor(file_path):
+    try:
+        text = "".join(page.get_text() for page in fitz.open(file_path))
+        address = re.search(r"\[집합건물\]\s*([^\n]+)", text).group(1).strip() if re.search(r"\[집합건물\]\s*([^\n]+)", text) else ""
+        area_match = re.findall(r"(\d+\.\d+)\s*㎡", text)
+        area_val = f"{area_match[-1]}㎡" if area_match else ""
+        floor_match = re.findall(r"제(\d+)층", address)
+        floor_num = int(floor_match[-1]) if floor_match else None
+        return address, area_val, floor_num
+    except Exception as e:
+        st.error(f"PDF 처리 오류: {e}")
+        return "", "", None
+
+def extract_owner_number_from_text(text):
+    """
+    📄 PDF 텍스트에서 등기명의인 주민등록번호 추출 함수
+    :param text: PDF 텍스트
+    :return: "이름 주민등록번호" 형식의 문자열 (여러 줄)
+    """
+    try:
+        owners = []
+        # 🔎 1. 등기명의인 구간 블록 찾기 (개선된 패턴)
+        matches = re.findall(r"등기명의인\s*\(주민\)등록번호[^\n]*\n([\s\S]+?)(?:\n\s*\n|$)", text)
+        if matches:
+            owners_block = matches[0]
+            # 🔍 2. 블록 안에서 '이름 (소유자) 주민번호6자리' 찾기
+            owner_matches = re.findall(r"([^\s\(]+)\s*\(소유자\)\s*(\d{6})", owners_block)
+            for name, reg_no in owner_matches:
+                owners.append(f"{name} {reg_no}")
+        return "\n".join(owners)
+    except Exception as e:
+        # 🛡 안전 로그 및 빈 문자열 리턴
+        try:
+            import streamlit as st
+            st.error(f"PDF 처리 오류: {e}")
+        except ImportError:
+            print(f"PDF 처리 오류 (Fallback Log): {e}")
+        return ""
 
 # 페이지 상태 저장
 if uploaded_file:
@@ -114,46 +153,6 @@ if uploaded_file:
     extracted_address, extracted_area, floor_num = extract_address_area_floor(path)
 else:
     extracted_address, extracted_area, floor_num = "", "", None
-
-#  PDF에서 주소 및 면적 추출 함수
-def extract_address_area_floor(file_path):
-    try:
-        text = "".join(page.get_text() for page in fitz.open(file_path))
-        address = re.search(r"\[집합건물\]\s*([^\n]+)", text).group(1).strip() if re.search(r"\[집합건물\]\s*([^\n]+)", text) else ""
-        area_match = re.findall(r"(\d+\.\d+)\s*㎡", text)
-        area_val = f"{area_match[-1]}㎡" if area_match else ""
-        floor_match = re.findall(r"제(\d+)층", address)
-        floor_num = int(floor_match[-1]) if floor_match else None
-        return address, area_val, floor_num
-    except Exception as e:
-        st.error(f"PDF 처리 오류: {e}")
-        return "", "", None
-
-def extract_owner_number_from_text(text):
-    """
-    📄 PDF 텍스트에서 등기명의인 주민등록번호 추출 함수
-    :param text: PDF 텍스트
-    :return: "이름 주민등록번호" 형식의 문자열 (여러 줄)
-    """
-    try:
-        owners = []
-        # 🔎 1. 등기명의인 구간 블록 찾기 (개선된 패턴)
-        matches = re.findall(r"등기명의인\s*\(주민\)등록번호[^\n]*\n([\s\S]+?)(?:\n\s*\n|$)", text)
-        if matches:
-            owners_block = matches[0]
-            # 🔍 2. 블록 안에서 '이름 (소유자) 주민번호6자리' 찾기
-            owner_matches = re.findall(r"([^\s\(]+)\s*\(소유자\)\s*(\d{6})", owners_block)
-            for name, reg_no in owner_matches:
-                owners.append(f"{name} {reg_no}")
-        return "\n".join(owners)
-    except Exception as e:
-        # 🛡 안전 로그 및 빈 문자열 리턴
-        try:
-            import streamlit as st
-            st.error(f"PDF 처리 오류: {e}")
-        except ImportError:
-            print(f"PDF 처리 오류 (Fallback Log): {e}")
-        return ""
 
 # KB 시세 입력값 포맷팅 함수 정의
 def format_kb_price():
