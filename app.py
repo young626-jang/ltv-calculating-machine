@@ -249,40 +249,33 @@ sum_sm = sum(
 )
 
 # 📈 PDF에서 등기명의인 주민등록번호 자동 추출
-def extract_owner_number(file_path):
+def extract_owner_number_from_stream(file_stream):
     try:
-        text = "".join(page.get_text() for page in fitz.open(file_path))
-        # 예시 패턴: 등기멤의인 : 홍길동 (123456)
-        match = re.search(r"등기명의인\s*[:：]?\s*([^\s\(\n]+)\s*\(?(\d{6})\)?", text)
-        if match:
-            name = match.group(1)
-            reg_no = match.group(2)
-            return f"{name} {reg_no}"
-        else:
-            return "등기명의인 정보 없음"
+        text = "".join(page.get_text() for page in fitz.open(stream=file_stream))
+        matches = re.findall(r"등기명의인\s*\(주민\)등록번호[^\n]*\n([\s\S]+?)(?:\n\s*\n|$)", text)
+        owners = []
+        if matches:
+            owners_block = matches[0]
+            owner_matches = re.findall(r"([^\s\(]+)\s*\(소유자\)\s*(\d{6})", owners_block)
+            for match in owner_matches:
+                name, reg_no = match
+                owners.append(f"{name} {reg_no}")
+        return "\n".join(owners) if owners else ""
     except Exception as e:
         st.error(f"명의인 정보 추출 오류: {e}")
-        return "등기명의인 정보 오류"
-    
-    # ✔ 파일 업로드 되었을 경우 처리
-if uploaded_file:
-    # PDF 저장
-    path = f"./{uploaded_file.name}"
-    with open(path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+        return ""
 
-    # 등기명의인 자동 추출
-    owner_number = extract_owner_number(path)
-    # 주소, 면적, 층수 추출
-    extracted_address, extracted_area, floor_num = extract_address_area_floor(path)
+# ✔ 파일 업로드 되었을 경우 메모리에서 바로 처리
+if uploaded_file:
+    owner_number = extract_owner_number_from_stream(uploaded_file.getbuffer())
+    extracted_address, extracted_area, floor_num = extract_address_area_floor(uploaded_file.getbuffer())
 else:
-    owner_number = "등기명의인 정보 없음"
+    owner_number = ""
     extracted_address, extracted_area, floor_num = "", "", None
-    
+
 text_to_copy = ""
 
-# 📈 기존 추출 데이터와 함께 메모란 생성
-text_to_copy = f"{owner_number}\n"
+text_to_copy = f"{owner_number}\n" if owner_number else ""
 text_to_copy = f"주소: {address_input}\n" + text_to_copy
 
 # 📍 일반가 / 하안가 여부 + KB시세
