@@ -248,9 +248,26 @@ sum_sm = sum(
     for item in items if item.get("진행구분") == "선말소"
 )
 
+# 📈 PDF에서 등기명의인 주민등록번호 자동 추출
+def extract_owner_number(file_path):
+    try:
+        text = "".join(page.get_text() for page in fitz.open(file_path))
+        # 예시 패턴: 등기멤의인 : 홍길동 (123456)
+        match = re.search(r"등기명의인\s*[:：]?\s*([^\s\(\n]+)\s*\(?(\d{6})\)?", text)
+        if match:
+            name = match.group(1)
+            reg_no = match.group(2)
+            return f"{name} {reg_no}"
+        else:
+            return "등기명의인 정보 없음"
+    except Exception as e:
+        st.error(f"명의인 정보 추출 오류: {e}")
+        return "등기명의인 정보 오류"
+    
 text_to_copy = ""
 
-text_to_copy = f"📍 주소: {address_input}\n" + text_to_copy
+text_to_copy = f"{owner_number}\n"
+text_to_copy = f"주소: {address_input}\n" + text_to_copy
 # 📍 일반가 / 하안가 여부 + KB시세
 type_of_price = "📉 하안가" if floor_num and floor_num <= 2 else "📈 일반가"
 text_to_copy += f"{type_of_price} | KB시세: {raw_price_input}만 | 전용면적: {area_input} | 방공제 금액: {deduction:,}만\n"
