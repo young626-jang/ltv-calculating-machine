@@ -31,20 +31,6 @@ region_map = {
     "방공제없음": 0
 }
 
-# 주소 및 면적 추출 함수
-def extract_address_area_floor(file_path):
-    try:
-        text = "".join(page.get_text() for page in fitz.open(file_path))
-        address = re.search(r"\[집합건물\]\s*([^\n]+)", text).group(1).strip() if re.search(r"\[집합건물\]\s*([^\n]+)", text) else ""
-        area_match = re.findall(r"(\d+\.\d+)\s*㎡", text)
-        area_val = f"{area_match[-1]}㎡" if area_match else ""
-        floor_match = re.findall(r"제(\d+)층", address)
-        floor_num = int(floor_match[-1]) if floor_match else None
-        return address, area_val, floor_num
-    except Exception as e:
-        st.error(f"PDF 처리 오류: {e}")
-        return "", "", None
-
 def parse_korean_number(text: str) -> int:
     txt = text.replace(",", "").strip()
     total = 0
@@ -75,6 +61,7 @@ def pdf_to_image(file_path, page_num):
     pix = page.get_pixmap()  # 페이지를 이미지로 변환
     img = pix.tobytes("png")  # PNG 형식으로 이미지 바이트로 변환
     return img
+
 
 # 페이지 상태 저장
 if uploaded_file:
@@ -117,6 +104,7 @@ if uploaded_file:
                 if st.session_state["current_page"] < total_pages - 2:
                     st.session_state["current_page"] += 2
 
+# 업로드한 등기를 다운로드받는 함수
 if uploaded_file:
     path = f"./{uploaded_file.name}"
     with open(path, "wb") as f:
@@ -127,7 +115,37 @@ if uploaded_file:
 else:
     extracted_address, extracted_area, floor_num = "", "", None
 
-# 📌 KB 시세 입력값 포맷팅 함수 정의
+#  PDF에서 주소 및 면적 추출 함수
+def extract_address_area_floor(file_path):
+    try:
+        text = "".join(page.get_text() for page in fitz.open(file_path))
+        address = re.search(r"\[집합건물\]\s*([^\n]+)", text).group(1).strip() if re.search(r"\[집합건물\]\s*([^\n]+)", text) else ""
+        area_match = re.findall(r"(\d+\.\d+)\s*㎡", text)
+        area_val = f"{area_match[-1]}㎡" if area_match else ""
+        floor_match = re.findall(r"제(\d+)층", address)
+        floor_num = int(floor_match[-1]) if floor_match else None
+        return address, area_val, floor_num
+    except Exception as e:
+        st.error(f"PDF 처리 오류: {e}")
+        return "", "", None
+
+#  PDF에서 등기명의인 주민등록번호 자동 추출하는 함수
+def extract_owner_number_from_text(text):
+    try:
+        owners = []
+        matches = re.findall(r"등기명의인\s*\(주민\)등록번호[^\n]*\n([\s\S]+?)(?:\n\s*\n|$)", text)
+        if matches:
+            owners_block = matches[0]
+            owner_matches = re.findall(r"([^\s\(]+)\s*\(소유자\)\s*(\d{6})", owners_block)
+            for match in owner_matches:
+                name, reg_no = match
+                owners.append(f"{name} {reg_no}")
+        return "\n".join(owners) if owners else ""
+    except Exception as e:
+        st.error(f"PDF 처리 오류: {e}")
+        return ""
+
+# KB 시세 입력값 포맷팅 함수 정의
 def format_kb_price():
     raw = st.session_state.get("raw_price", "")
     clean = parse_korean_number(raw)  # 한글 단위 포함 처리
@@ -136,14 +154,14 @@ def format_kb_price():
     else:
         st.session_state["raw_price"] = ""
 
-# 📌 전용면적 입력값 포맷팅 함수 정의
+# 전용면적 입력값 포맷팅 함수 정의
 def format_area():
     raw = st.session_state.get("area_input", "")
     clean = re.sub(r"[^\d.]", "", raw)
     if clean and not raw.endswith("㎡"):
         st.session_state["area_input"] = f"{clean}㎡"
 
-# 📌 세션 초기값 선언
+# 세션 초기값 선언
 if "raw_price" not in st.session_state:
     st.session_state["raw_price"] = "0"
 
@@ -246,32 +264,6 @@ sum_dh = sum(
 sum_sm = sum(
     int(re.sub(r"[^\d]", "", item.get("원금", "0")) or 0)
     for item in items if item.get("진행구분") == "선말소"
-)
-
-# 📈 PDF에서 등기명의인 주민등록번호 자동 추출
-def extract_owner_number_from_stream(file_stream):
-    try:
-        text = "".join(page.get_text() for page in fitz.open(stream=file_stream))
-        matches = re.findall(r"등기명의인\s*\(주민\)등록번호[^\n]*\n([\s\S]+?)(?:\n\s*\n|$)", text)
-        owners = []
-        if matches:
-            owners_block = matches[0]
-            owner_matches = re.findall(r"([^\s\(]+)\s*\(소유자\)\s*(\d{6})", owners_block)
-            for match in owner_matches:
-                name, reg_no = match
-                owners.append(f"{name} {reg_no}")
-        return "\n".join(owners) if owners else ""
-    except Exception as e:
-        st.error(f"명의인 정보 추출 오류: {e}")
-        return ""
-
-# ✔ 파일 업로드 되었을 경우 메모리에서 바로 처리
-if uploaded_file:
-    owner_number = extract_owner_number_from_stream(uploaded_file.getbuffer())
-    extracted_address, extracted_area, floor_num = extract_address_area_floor(uploaded_file.getbuffer())
-else:
-    owner_number = ""
-    extracted_address, extracted_area, floor_num = "", "", None
 
 text_to_copy = ""
 
