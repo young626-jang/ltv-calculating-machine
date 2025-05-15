@@ -277,12 +277,12 @@ sum_sm = sum(
     for item in items if item.get("진행구분") == "선말소"
 )
 
-# 📈 기존 추출 데이터와 함께 메모란 생성
+# 결과내용
 text_to_copy = ""
 
-owner_number = ""  # 👈 여기가 핵심 (무조건 선언)
+owner_number = extract_owner_number_from_summary(text)
 
-text_to_copy += f"{owner_number}\n"
+text_to_copy = f"고객명: {owner_number}\n"
 text_to_copy = f"주소: {address_input}\n" + text_to_copy
 
 # 📍 일반가 / 하안가 여부 + KB시세
