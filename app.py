@@ -83,6 +83,13 @@ if uploaded_file:
         full_text = "".join(page.get_text() for page in doc)
         total_pages = doc.page_count  # 페이지 수도 이 때 같이 가져오기
 
+    # ✔ 파일 다운로드 버튼 (path만 쓰면 됨)
+    with open(path, "rb") as f:
+        st.download_button("업로드한 등기부등본 다운로드", f, uploaded_file.name, mime="application/pdf")
+
+else:
+    address_input, area_val, floor_num = "", "", None        
+
     # Streamlit의 세션 상태를 사용하여 현재 페이지를 추적
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = 0  # 초기 페이지는 첫 번째 페이지
@@ -113,17 +120,6 @@ if uploaded_file:
             if st.button("▶", key="next_page"):
                 if st.session_state["current_page"] < total_pages - 2:
                     st.session_state["current_page"] += 2
-
-# 업로드한 등기를 다운로드받는 함수
-if uploaded_file:
-    path = f"./{uploaded_file.name}"
-    with open(path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    with open(path, "rb") as f:
-        st.download_button("업로드한 등기부등본 다운로드", f, uploaded_file.name, mime="application/pdf")
-    extracted_address, extracted_area, floor_num = extract_address_area_floor(path)
-else:
-    extracted_address, extracted_area, floor_num = "", "", None
 
 # KB 시세 입력값 포맷팅 함수 정의
 def format_kb_price():
