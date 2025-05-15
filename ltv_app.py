@@ -3,6 +3,7 @@ import fitz  # PyMuPDF
 import re
 
 # 📦 유틸리티 모듈 import
+
 from utils_pdf import extract_address_area_floor_from_text, extract_owner_number_from_summary
 from utils_pdfviewer import pdf_viewer_with_navigation
 from utils_deduction import get_deduction_ui
@@ -11,11 +12,7 @@ from utils_fees import handle_fee_ui_and_calculation
 from utils_css import inject_custom_css
 
 def run_ltv_app():
-    """💻 LTV 계산기 메인 실행 함수"""
-    st.set_page_config(page_title="LTV 계산기 (최종)", layout="wide", initial_sidebar_state="expanded")
     st.title("🏠 LTV 계산기 (주소+면적추출)")
-
-    inject_custom_css(st)
 
     uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
 
