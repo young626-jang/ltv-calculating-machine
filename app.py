@@ -215,48 +215,81 @@ with st.expander("접기", expanded=True):
             pass
     ltv_selected = list(dict.fromkeys(ltv_selected))
 
-# 숫자 입력값을 쉼표로 포맷팅하는 함수
-def format_with_comma(key):
-    raw = st.session_state.get(key, "")
-    clean = re.sub(r"[^\d]", "", raw)  # 숫자만 남기기
+# 숫자 입력값을 쉼표로 포맷팅하여 별도 상태에 저장 (부모)
+def format_with_comma_result(raw):
+    clean = re.sub(r"[^\d]", "", raw)
     if clean.isdigit():
-        st.session_state[key] = "{:,}".format(int(clean))  # 쉼표 추가
-    else:
-        st.session_state[key] = ""  # 유효하지 않은 입력은 빈 문자열로 설정
+        return "{:,}".format(int(clean))
+    return ""
 
 # 대출 항목 입력
 st.markdown("### 📝 대출 항목 입력")
 rows = st.number_input("항목 개수", min_value=1, max_value=10, value=3)
 items = []
+
+for i in range(int(rows)):
+    cols = st.columns(5)
+    lender = cols[0].text_input("설정자", key=f"lender_{i}")
+
+    # 🔑 A자식: 입력 필드 전용 key (사용자 원본 입력)
+    user_input_key = f"maxamt_{i}_input"
+
+    # 🛡️ A부모: 포맷된 값 저장 key (UI와 충돌 없이 상태만 관리)
+    formatted_key = f"maxamt_{i}_formatted"
+
+    # ✅ 상태 초기화 (안전)
+    if formatted_key not in st.session_state:
+        st.session_state[formatted_key] = ""
+
+    # 입력 필드 (자식)
+    user_input = cols[1].text_input(
+        "채권최고액 (만)", 
+        key=user_input_key
+    )
+
+    # 포맷팅 → 부모 상태에 업데이트 (UI와 별도)
+    formatted_value = format_with_comma_result(user_input)
+    st.session_state[formatted_key] = formatted_value
+
+    # ✅ UI 표시 (포맷팅된 값 보여주기, 별도)
+    cols[1].markdown(f"💰 포맷된 값: `{formatted_value}`" if formatted_value else "💰 입력 대기")
+
+# 🔥 원금 계산 함수 (UI와 독립)
+def calculate_principal(max_amt, ratio):
+    try:
+        clean_amt = int(re.sub(r"[^\d]", "", max_amt) or 0)
+        clean_ratio = int(re.sub(r"[^\d]", "", ratio) or 100)
+        return clean_amt * 100 // clean_ratio if clean_ratio else 0
+    except:
+        return 0
+
+# ➡ 대출 항목 입력
+rows = st.number_input("항목 개수", min_value=1, max_value=10, value=3)
+items = []
+
 for i in range(int(rows)):
     cols = st.columns(5)
     lender = cols[0].text_input("설정자", key=f"lender_{i}")
     max_amt_key = f"maxamt_{i}"
-    cols[1].text_input(
-        "채권최고액 (만)", 
-        key=max_amt_key, 
-        on_change=format_with_comma, 
-        args=(max_amt_key,)
-    )
-    ratio = cols[2].text_input("설정비율 (%)", "120", key=f"ratio_{i}")
-    try:
-        calc = int(re.sub(r"[^\d]", "", st.session_state.get(max_amt_key, "0")) or 0) * 100 // int(ratio or 100)
-    except:
-        calc = 0
-    principal_key = f"principal_{i}"
-    cols[3].text_input(
-        "원금", 
-        key=principal_key, 
-        value=f"{calc:,}",  # 기본값으로 계산된 값 표시
-        on_change=format_with_comma, 
-        args=(principal_key,)
-    )
+    max_amt = cols[1].text_input("채권최고액 (만)", key=max_amt_key)
+
+    ratio_key = f"ratio_{i}"
+    ratio = cols[2].text_input("설정비율 (%)", "120", key=ratio_key)
+
+    # 🛡️ 계산된 원금 (별도 계산, 별도 표시, UI와 충돌 X)
+    calc = calculate_principal(st.session_state.get(max_amt_key, "0"), st.session_state.get(ratio_key, "120"))
+
+    # 별도 키 없이 그냥 UI 표시 (on_change 없이 안전)
+    principal_display = f"{calc:,}" if calc else "0"
+    cols[3].text_input("원금 (자동계산)", value=principal_display, disabled=True)
+
     status = cols[4].selectbox("진행구분", ["유지", "대환", "선말소"], key=f"status_{i}")
+
     items.append({
         "설정자": lender,
         "채권최고액": st.session_state.get(max_amt_key, ""),
-        "설정비율": ratio,
-        "원금": st.session_state.get(principal_key, ""),
+        "설정비율": st.session_state.get(ratio_key, ""),
+        "원금": principal_display,
         "진행구분": status
     })
 
@@ -278,7 +311,8 @@ sum_sm = sum(
 # 📈 기존 추출 데이터와 함께 메모란 생성
 text_to_copy = ""
 
-owner_number = ""  # 👈 여기가 핵심 (무조건 선언)
+owner_number = owner_number if 'owner_number' in locals() else ""
+address_input = address_input if 'address_input' in locals() else "주소 미입력"
 
 text_to_copy += f"{owner_number}\n"
 text_to_copy = f"주소: {address_input}\n" + text_to_copy
