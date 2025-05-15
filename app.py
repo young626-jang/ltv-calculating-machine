@@ -70,7 +70,7 @@ def extract_address_area_floor_from_text(text):
         st.error(f"PDF 처리 오류: {e}")
         return "", "", None
 
-total_pages = 0  # 먼저 초기값 선언
+extracted_address, extracted_area, floor_num = "", "", None  # 먼저 선언
 
 # ✔ 페이지 상태 저장
 if uploaded_file:
@@ -81,8 +81,11 @@ if uploaded_file:
     with fitz.open(path) as doc:
         full_text = "".join(page.get_text() for page in doc)
         total_pages = doc.page_count
-        
-if st.session_state.get("current_page", 0) < total_pages:
+
+    extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
+
+# 📋 UI에서는 안전하게 사용
+address_input = st.text_input("주소", extracted_address, key="address_input")
 
     # ✅ 주민번호와 주소 추출 (텍스트 기반)
     owner_number = extract_owner_number_from_summary(full_text)
