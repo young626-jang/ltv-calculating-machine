@@ -116,11 +116,7 @@ if uploaded_file:
         # ✅ 최종 결과 표시
         st.text_area("📋 결과 내용", value=text_to_copy, height=300)
 else:
-    st.warning("PDF를 먼저 업로드하세요.")
-
-# Streamlit의 세션 상태를 사용하여 현재 페이지를 추적
-if "current_page" not in st.session_state:
-    st.session_state["current_page"] = 0  # 초기 페이지는 첫 번째 페이지
+    total_pages = 0  # PDF가 업로드되지 않은 경우 기본값 설정
 
 # 현재 페이지의 이미지를 표시
 col1, col2 = st.columns(2)  # 두 열로 나누기
@@ -131,7 +127,7 @@ with col1:
 
 with col2:
     if st.session_state["current_page"] + 1 < total_pages:
-        img_right = pdf_to_image(path, st.session_state["current_page"] + 1) 
+        img_right = pdf_to_image(path, st.session_state["current_page"] + 1)
         st.image(img_right, caption=f"Page {st.session_state['current_page'] + 2} of {total_pages}")
 
 col1, col2, col3 = st.columns(3)
