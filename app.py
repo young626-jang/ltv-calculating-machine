@@ -3,10 +3,6 @@ import fitz  # PyMuPDF
 import re
 from ltv_map import region_map  # ✅ 외부 ltv_map.py에서 region_map 가져오기
 from utils_css import inject_custom_css
-from utils_pdfviewer import pdf_viewer_with_navigation
-
-# PDF Viewer 호출 위치에서:
-pdf_viewer_with_navigation(st, path, total_pages)
 
 # 앱 시작 부분 (st.set_page_config 바로 아래)
 inject_custom_css(st)
@@ -112,54 +108,56 @@ def main():
 
     uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
 
-    if uploaded_file:
-        path = f"./{uploaded_file.name}"
-        with open(path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+# PDF 파일 열기 및 텍스트 추출 함수
+def process_pdf(uploaded_file):
+    path = f"./{uploaded_file.name}"
+    with open(path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    with fitz.open(path) as doc:
+        full_text = "".join(page.get_text() for page in doc)
+        total_pages = doc.page_count
+    return path, full_text, total_pages
 
-        with fitz.open(path) as doc:
-            full_text = "".join(page.get_text() for page in doc)
-            total_pages = doc.page_count
+# PDF 처리 및 UI 표시
+if uploaded_file:
+    try:
+        path, full_text, total_pages = process_pdf(uploaded_file)
+        extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
+        owner_number = extract_owner_number_from_summary(full_text)
 
-            # ✅ 추출
-            extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
-            owner_number = extract_owner_number_from_summary(full_text)
+        # PDF 페이지 이미지 표시
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.session_state["current_page"] < total_pages:
+                img_left = pdf_to_image(path, st.session_state["current_page"])
+                st.image(img_left, caption=f"Page {st.session_state['current_page'] + 1} of {total_pages}")
+        with col2:
+            if st.session_state["current_page"] + 1 < total_pages:
+                img_right = pdf_to_image(path, st.session_state["current_page"] + 1)
+                st.image(img_right, caption=f"Page {st.session_state['current_page'] + 2} of {total_pages}")
 
-            # ✅ 화면 출력
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.session_state["current_page"] < total_pages:
-                    img_left = pdf_to_image(path, st.session_state["current_page"])
-                    st.image(img_left, caption=f"Page {st.session_state['current_page'] + 1} of {total_pages}")
-            with col2:
-                if st.session_state["current_page"] + 1 < total_pages:
-                    img_right = pdf_to_image(path, st.session_state["current_page"] + 1)
-                    st.image(img_right, caption=f"Page {st.session_state['current_page'] + 2} of {total_pages}")
+        # 페이지 이동 버튼
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("◀ 이전 페이지"):
+                if st.session_state["current_page"] > 0:
+                    st.session_state["current_page"] -= 1
+        with col2:
+            if st.button("다음 페이지 ▶"):
+                if st.session_state["current_page"] < total_pages - 1:
+                    st.session_state["current_page"] += 1
 
-            # ✅ 페이지 넘기기 버튼
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("◀ 이전 페이지"):
-                    if st.session_state["current_page"] > 0:
-                        st.session_state["current_page"] -= 1
-            with col2:
-                if st.button("다음 페이지 ▶"):
-                    if st.session_state["current_page"] < total_pages - 1:
-                        st.session_state["current_page"] += 1
+        # 추출된 정보 표시
+        st.markdown(f"**고객명:** {owner_number}")
+        st.markdown(f"**주소:** {extracted_address}")
+        st.markdown(f"**전용면적:** {extracted_area}")
+        if floor_num:
+            st.markdown(f"**층수:** 제{floor_num}층")
 
-            # ✅ 다운로드
-            with open(path, "rb") as f:
-                st.download_button("업로드한 등기부등본 다운로드", f, uploaded_file.name, mime="application/pdf")
-
-            # ✅ 추출된 정보 표시
-            st.markdown(f"**고객명:** {owner_number}")
-            st.markdown(f"**주소:** {extracted_address}")
-            st.markdown(f"**전용면적:** {extracted_area}")
-            if floor_num:
-                st.markdown(f"**층수:** 제{floor_num}층")
-
-    else:
-        st.warning("PDF 파일을 업로드하세요.")
+    except Exception as e:
+        st.error(f"PDF 처리 중 오류가 발생했습니다: {e}")
+else:
+    st.warning("PDF 파일을 업로드하세요.")
 
     # ✅ LTV 계산 및 대출 항목 입력 UI 포함 (여기서 계속)
     # ⬇️ 다음에 계속 추가됩니다
