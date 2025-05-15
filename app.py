@@ -5,6 +5,7 @@ st.set_page_config(page_title="LTV 계산기", layout="wide")
 import fitz  # PyMuPDF
 import re
 import urllib.parse
+from ltv_map import region_map  # ltv_map.py에서 region_map 가져오기
 
 # 여기서부터 본문 시작
 st.title("🏠 LTV 계산기 (주소+면적추출)")
@@ -199,7 +200,7 @@ with st.expander("접기", expanded=True):
         url = "https://kbland.kr/map?xy=37.5205559,126.9265729,17"
         st.components.v1.html(f"<script>window.open('{url}','_blank')</script>", height=0)
 
-    # 👉 방공제 지역 & 방공제 금액 같은 줄에 붙이기
+    # 방공제 지역 & 방공제 금액 같은 줄에 붙이기
     col1, col2 = st.columns(2)
     region = col1.selectbox("방공제 지역 선택", [""] + list(region_map.keys()))
     default_d = region_map.get(region, 0)
