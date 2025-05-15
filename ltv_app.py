@@ -8,7 +8,7 @@ from utils_deduction import get_deduction_ui
 from utils_ltv import handle_ltv_ui_and_calculation
 from utils_fees import handle_fee_ui_and_calculation
 
-# ✅ 커스텀 CSS 주입 함수 (앱 전체 레이아웃 및 배경 색상 적용)
+# ✅ CSS 주입 함수 (앱 전체 레이아웃 및 배경색)
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -21,43 +21,37 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 def run_ltv_app():
-    # ✔ 앱 타이틀 및 CSS 적용 (타이틀 이후에 바로)
     st.title("🏠 LTV 계산기 (주소+면적추출)")
     inject_custom_css()
 
-    # ✔ PDF 업로더 UI
+    # PDF 업로드
     uploaded_file = st.file_uploader("등기부등본 PDF 업로드", type=["pdf"])
 
-    # ✔ 분석 데이터 초기화
     extracted_address = ""
     extracted_area = ""
     floor_num = None
     owner_number = ""
 
-    # ✔ 파일 업로드된 경우 처리
+    # PDF 업로드 후 분석
     if uploaded_file:
         st.success(f"✅ 업로드 완료: {uploaded_file.name}")
 
-        # ✔ 파일 저장
         path = f"./{uploaded_file.name}"
         with open(path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
-        # ✔ PDF 열기 및 텍스트 분석
         with fitz.open(path) as doc:
             full_text = "".join(page.get_text() for page in doc)
             total_pages = doc.page_count
             extracted_address, extracted_area, floor_num = extract_address_area_floor_from_text(full_text)
             owner_number = extract_owner_number_from_summary(full_text)
 
-        # ✔ 고객명 + 주민번호 표시
         st.markdown("### 👤 고객명 & 주민번호")
         st.info(owner_number)
 
-        # ✔ PDF 페이지 뷰어 표시
         pdf_viewer_with_navigation(st, path, total_pages)
 
-    # ✔ 주소 & 시세 입력
+    # 주소 + 시세 입력
     with st.expander("📂 주소 & 시세 입력", expanded=True):
         address_input = st.text_input("주소", value=extracted_address if uploaded_file else "", key="address_input")
         if st.button("🔎 KB 시세 조회"):
@@ -68,19 +62,15 @@ def run_ltv_app():
         raw_price_input = col1.text_input("KB 시세 (만원)", key="raw_price")
         area_input = col2.text_input("전용면적 (㎡)", value=extracted_area if uploaded_file else "", key="area_input")
 
-    # ✔ 방공제 입력 UI
+    # 방공제 입력
     deduction = get_deduction_ui(st)
 
-    # ✔ 대출 항목 + LTV 계산
+    # 대출 항목 + LTV 계산
     with st.expander("💳 대출 항목 + LTV 계산", expanded=True):
         ltv_results, loan_items, sum_dh, sum_sm = handle_ltv_ui_and_calculation(st, raw_price_input, deduction)
 
-    # ✔ 수수료 계산
-    with st.expander("💰 수수료 계산", expanded=True):
-        consulting_fee, bridge_fee, total_fee = handle_fee_ui_and_calculation(st)
-
-    # ✔ 결과 내용 자동 생성 (값 없으면 자동 생략)
-    with st.expander("📋 결과 내용 (자동 생성)", expanded=True):
+    # 결과 내용 (자동 생성)
+    with st.expander("📋 결과 내용", expanded=True):
         text_to_copy = ""
 
         if owner_number:
@@ -116,9 +106,12 @@ def run_ltv_app():
             if sum_sm > 0:
                 text_to_copy += f"선말소: {sum_sm:,}만\n"
 
-        # ✔ 최종 결과 출력
-        st.text_area("📋 결과 내용", value=text_to_copy.strip(), height=400)
+        # 수수료 내용은 결과에도 포함 (수수료 계산은 UI 가장 마지막에서 계산)
+        st.text_area("", value=text_to_copy.strip(), height=400)
 
-# ✔ 엔트리 포인트 보호
+    # ✅ 컨설팅 & 브릿지 수수료 계산 ➡ 앱 맨 마지막
+    with st.expander("💰 수수료 계산", expanded=True):
+        consulting_fee, bridge_fee, total_fee = handle_fee_ui_and_calculation(st)
+
 if __name__ == "__main__":
     run_ltv_app()
